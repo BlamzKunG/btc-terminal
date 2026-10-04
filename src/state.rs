@@ -502,9 +502,11 @@ impl MarketState {
         }
 
         let bids_vec: Vec<(f64, f64)> = bid_buckets.into_iter().rev()
+            .filter(|(_, sz)| *sz >= 0.1)
             .map(|(k, sz)| ((k as f64) * step, sz))
             .collect();
         let asks_vec: Vec<(f64, f64)> = ask_buckets.into_iter()
+            .filter(|(_, sz)| *sz >= 0.1)
             .map(|(k, sz)| ((k as f64) * step, sz))
             .collect();
 
@@ -527,7 +529,7 @@ impl MarketState {
             trades,
         });
 
-        if self.history_slices.len() > 300 {
+        if self.history_slices.len() > 150 {
             self.history_slices.pop_front();
         }
         self.last_slice_ts = now;

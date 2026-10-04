@@ -857,7 +857,20 @@
             if (lastPrice > 0) {
                 priceCenter = lastPrice;
                 autoFollowPrice = true;
+                updateCenterButton();
                 requestAnimationFrame(drawBookmap);
+            }
+        }
+
+        function updateCenterButton() {
+            const btn = document.getElementById('btn-center');
+            if (!btn) return;
+            if (autoFollowPrice) {
+                btn.className = 'tool-btn active-range';
+                btn.innerHTML = '🎯 Center: ON';
+            } else {
+                btn.className = 'tool-btn';
+                btn.innerHTML = '🎯 Center: OFF';
             }
         }
 
@@ -1083,9 +1096,10 @@
             }
 
             // 3. Render 2D Liquidity Heatmap Slices
-            const visibleSliceCount = Math.max(60, Math.min(300, rawSlices.length));
-            const slices = rawSlices.slice(-visibleSliceCount);
-            const sliceW = plotWidth / Math.max(1, visibleSliceCount);
+            const maxVisibleSlices = 100;
+            const slices = rawSlices.slice(-maxVisibleSlices);
+            const sliceW = plotWidth / maxVisibleSlices;
+            const startX = plotWidth - (slices.length * sliceW);
 
             // Find max depth size for dynamic normalization
             let maxVolInBook = 8.0;
@@ -1098,36 +1112,36 @@
             const cellHeight = Math.max(2.2, (2.5 / (maxPrice - minPrice)) * plotHeight);
             for (let i = 0; i < slices.length; i++) {
                 const s = slices[i];
-                const x = i * sliceW;
+                const x = startX + i * sliceW;
 
-                // Render Bids
+                // Render Bids (sorted high to low: break early once below minPrice)
                 if (s.bids) {
                     for (let j = 0; j < s.bids.length; j++) {
                         const p = s.bids[j][0];
+                        if (p > maxPrice + 10) continue;
+                        if (p < minPrice - 10) break;
                         const sz = s.bids[j][1];
-                        if (p >= minPrice - 10 && p <= maxPrice + 10) {
-                            const y = priceToY(p);
-                            const col = getBookmapColor(sz / maxVolInBook);
-                            if (col) {
-                                bmCtx.fillStyle = col;
-                                bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
-                            }
+                        const y = priceToY(p);
+                        const col = getBookmapColor(sz / maxVolInBook);
+                        if (col) {
+                            bmCtx.fillStyle = col;
+                            bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
                         }
                     }
                 }
 
-                // Render Asks
+                // Render Asks (sorted low to high: break early once above maxPrice)
                 if (s.asks) {
                     for (let j = 0; j < s.asks.length; j++) {
                         const p = s.asks[j][0];
+                        if (p < minPrice - 10) continue;
+                        if (p > maxPrice + 10) break;
                         const sz = s.asks[j][1];
-                        if (p >= minPrice - 10 && p <= maxPrice + 10) {
-                            const y = priceToY(p);
-                            const col = getBookmapColor(sz / maxVolInBook);
-                            if (col) {
-                                bmCtx.fillStyle = col;
-                                bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
-                            }
+                        const y = priceToY(p);
+                        const col = getBookmapColor(sz / maxVolInBook);
+                        if (col) {
+                            bmCtx.fillStyle = col;
+                            bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
                         }
                     }
                 }
@@ -1136,7 +1150,7 @@
             // Dotted Time Grid Lines
             for (let i = 0; i < slices.length; i += 15) {
                 const s = slices[i];
-                const x = i * sliceW;
+                const x = startX + i * sliceW;
                 bmCtx.setLineDash([2, 5]);
                 bmCtx.strokeStyle = 'rgba(50, 65, 88, 0.7)';
                 bmCtx.beginPath();
@@ -1160,8 +1174,8 @@
                 for (let i = 1; i < slices.length; i++) {
                     const prevS = slices[i - 1];
                     const currS = slices[i];
-                    const prevX = (i - 1) * sliceW;
-                    const currX = i * sliceW;
+                    const prevX = startX + (i - 1) * sliceW;
+                    const currX = startX + i * sliceW;
                     const prevY = priceToY(prevS.price);
                     const currY = priceToY(currS.price);
 
@@ -1193,7 +1207,7 @@
                     const totVol = buyVol + sellVol;
                     if (totVol <= 0.02) continue;
 
-                    const x = i * sliceW;
+                    const x = startX + i * sliceW;
                     const y = priceToY(s.price);
                     // Radius log scaled
                     const r = Math.max(3.5, Math.min(28, Math.pow(totVol, 0.45) * 8.0));
@@ -1485,13 +1499,16 @@
                 latestOrderbook = st.orderbook;
                 prevPrice = lastPrice > 0 ? lastPrice : st.last_price;
                 lastPrice = st.last_price;
+                if (autoFollowPrice && st.last_price > 0) {
+                    priceCenter = st.last_price;
+                }
 
                 // Push new history slice into rolling buffer
                 if (st.latest_slice) {
                     const lastTs = rawSlices.length ? rawSlices[rawSlices.length - 1].ts : 0;
                     if (st.latest_slice.ts > lastTs) {
                         rawSlices.push(st.latest_slice);
-                        if (rawSlices.length > 240) rawSlices.shift();
+                        if (rawSlices.length > 200) rawSlices.shift();
                     } else if (rawSlices.length) {
                         rawSlices[rawSlices.length - 1] = st.latest_slice;
                     }
@@ -1594,12 +1611,12 @@
             contrastInput.value = contrastLevel;
 
             applyVolumeSetting();
+            updateCenterButton();
             resizeBookmapCanvas();
 
             fetchHeatmapHistory();
             fetchState();
             setInterval(fetchState, 500);
-            setInterval(fetchHeatmapHistory, 15000);
         });
     </script>
 </body>
