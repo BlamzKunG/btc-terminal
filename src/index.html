@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC-Terminal Web Dashboard</title>
+    <!-- TradingView Lightweight Charts Library -->
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-base: #0b0e14;
+            --bg-card: #151922;
+            --bg-panel: #1a202c;
+            --border: #262f3d;
+            --border-highlight: #3b475a;
+            --text-main: #f0f3f6;
+            --text-sub: #8c9ba5;
+            --cyan: #00f2fe;
+            --green: #26a69a;
+            --red: #ef5350;
+            --yellow: #f59e0b;
+            --gold: #fbbf24;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        /* Top Navigation Header */
+        header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .brand-area {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .logo {
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tag-pill {
+            background: rgba(0, 242, 254, 0.12);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--green);
+            background: rgba(38, 166, 154, 0.12);
+            border: 1px solid rgba(38, 166, 154, 0.25);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .cli-tip {
+            font-size: 12px;
+            color: var(--gold);
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+        .cli-tip code {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Hero Ticker Section */
+        .hero-bar {
+            background: #11151e;
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .price-hero {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+        .pair-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-sub);
+        }
+        .live-price {
+            font-size: 34px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+            transition: color 0.3s ease;
+        }
+        .price-chg {
+            font-size: 16px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .stat-grid {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .stat-lbl {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        .stat-val {
+            font-size: 14px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Main Content Layout */
+        .main-container {
+            flex: 1;
+            padding: 20px 24px;
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+        }
+        @media (max-width: 1100px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 600px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .chart-header {
+            padding: 10px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #141822;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .chart-title {
+            font-size: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Interactive Controls Toolbar */
+        .chart-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            background: #1e2635;
+            color: var(--text-sub);
+            border: 1px solid var(--border);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .tool-btn:hover {
+            background: #283347;
+            color: #fff;
+            border-color: var(--border-highlight);
+        }
+        .tool-btn.active {
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--cyan);
+            border-color: rgba(0, 242, 254, 0.4);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+        }
+        .tool-btn.active-vol {
+            background: rgba(38, 166, 154, 0.15);
+            color: var(--green);
+            border-color: rgba(38, 166, 154, 0.4);
+        }
+        .tool-btn.active-heat {
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--gold);
+            border-color: rgba(251, 191, 36, 0.4);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+        }
+
+        .legend-bar {
+            padding: 6px 18px;
+            background: #11151e;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-sub);
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Chart Canvas Container & Overlay */
+        .chart-relative-box {
+            flex: 1;
+            width: 100%;
+            height: 520px;
+            position: relative;
+        }
+        #chart-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #heatmap-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        #fallback-canvas {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Sidebar Panels */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        }
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--cyan);
+        }
+
+        /* Orderbook Pressure Bar */
+        .pressure-bar-container {
+            background: rgba(239, 83, 80, 0.2);
+            height: 14px;
+            border-radius: 7px;
+            overflow: hidden;
+            display: flex;
+            margin: 10px 0;
+            border: 1px solid var(--border);
+        }
+        .pressure-bid-fill {
+            background: linear-gradient(90deg, #26a69a, #4db6ac);
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+        .pressure-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        /* Metric Rows */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-key { color: var(--text-sub); }
+        .info-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+        /* Trade Tape */
+        .trade-tape {
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .trade-row {
+            display: grid;
+            grid-template-columns: 60px 50px 1fr 1fr;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-variant-numeric: tabular-nums;
+            align-items: center;
+        }
+        .trade-buy { background: rgba(38, 166, 154, 0.08); color: var(--green); }
+        .trade-sell { background: rgba(239, 83, 80, 0.08); color: var(--red); }
+        .trade-whale { border: 1px solid var(--gold); background: rgba(251, 191, 36, 0.15); font-weight: bold; }
+
+        /* Confluence Score Box */
+        .confluence-box {
+            background: #11151e;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .confluence-score {
+            font-size: 26px;
+            font-weight: 900;
+            margin: 4px 0;
+        }
+        .confluence-bias {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Bottom Row Cards */
+        .bottom-grid {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        /* Colors & Utilities */
+        .text-green { color: var(--green); }
+        .text-red { color: var(--red); }
+        .text-yellow { color: var(--yellow); }
+        .text-cyan { color: var(--cyan); }
+        .text-gold { color: var(--gold); }
+        .bg-green { background: rgba(38, 166, 154, 0.2); color: var(--green); }
+        .bg-red { background: rgba(239, 83, 80, 0.2); color: var(--red); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-card); }
+        ::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="brand-area">
+            <div class="logo">⚡ BTC-TERMINAL</div>
+            <span class="tag-pill">WEB DASHBOARD</span>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span id="conn-status">LIVE BYBIT & BINANCE STREAM</span>
+            </div>
+        </div>
+        <div class="cli-tip">
+            🎮 <strong>CLI Control:</strong> Press <code>m</code> in Terminal to toggle Web UI on/off anytime.
+        </div>
+    </header>
+
+    <!-- Hero Ticker Stats -->
+    <div class="hero-bar">
+        <div class="price-hero">
+            <span class="pair-title">BTC/USDT Linear</span>
+            <span class="live-price" id="hero-price">$--,---.--</span>
+            <span class="price-chg" id="hero-chg">+0.00%</span>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-box">
+                <span class="stat-lbl">24h High</span>
+                <span class="stat-val text-green" id="hero-high">$--,---</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl">24h Low</span>
+                <span class="stat-val text-red" id="hero-low">$--,---</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl">24h Volume</span>
+                <span class="stat-val" id="hero-vol">-- BTC</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl">Arbitrage Basis (Binance)</span>
+                <span class="stat-val text-cyan" id="hero-arb">-- ($0.0)</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl">Funding Rate</span>
+                <span class="stat-val text-gold" id="hero-funding">+0.0000%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-container">
+        <!-- Candlestick Chart Card -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <span>📈 Candlestick & Liquidity Depth Heatmap</span>
+                    <span class="tag-pill" style="font-size:10px;">REALTIME 1-MIN</span>
+                </div>
+                <!-- Interactive Chart Toolbar (Volume & Heatmap Toggles) -->
+                <div class="chart-toolbar">
+                    <button id="btn-toggle-heat" class="tool-btn active-heat" onclick="toggleHeatmap()">
+                        🔥 Heatmap: ON
+                    </button>
+                    <button id="btn-toggle-vol" class="tool-btn active-vol" onclick="toggleVolume()">
+                        📊 Volume: ON
+                    </button>
+                    <button id="btn-toggle-ema" class="tool-btn active" onclick="toggleEma()">
+                        📈 EMA 9/21: ON
+                    </button>
+                </div>
+            </div>
+
+            <!-- Legend Bar -->
+            <div class="legend-bar">
+                <div class="legend-item"><span class="legend-dot" style="background:#26a69a;"></span> Bullish</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span> Bearish</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#00f2fe;"></span> EMA 9</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span> EMA 21</div>
+                <div class="legend-item"><span class="legend-dot" style="background:rgba(0, 242, 254, 0.7);"></span> Bid Depth</div>
+                <div class="legend-item"><span class="legend-dot" style="background:rgba(251, 191, 36, 0.7);"></span> Ask Depth</div>
+                <div class="legend-item" id="ohlc-info" style="color:#fff; font-weight:600; margin-left:auto;"></div>
+            </div>
+
+            <!-- Chart Relative Container -->
+            <div class="chart-relative-box">
+                <div id="chart-container"></div>
+                <!-- Canvas Heatmap Overlay Layer -->
+                <canvas id="heatmap-canvas"></canvas>
+                <canvas id="fallback-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Sidebar Analytics -->
+        <div class="sidebar">
+            <!-- 4-Layer Confluence Signal -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span>🎯 4-Layer Confluence Signal</span>
+                    <span id="conf-badge" class="tag-pill">NEUTRAL</span>
+                </div>
+                <div class="confluence-box">
+                    <div class="confluence-score" id="conf-score">+0</div>
+                    <div class="confluence-bias" id="conf-bias">CONFLUENCE BUILDING...</div>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Signal Setup</span>
+                    <span class="info-val text-gold" id="conf-setup">Evaluating...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">RSI (14-period)</span>
+                    <span class="info-val" id="rsi-val">50.0</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">EMA 9 / EMA 21</span>
+                    <span class="info-val text-cyan" id="ema-trend">BULLISH ▲</span>
+                </div>
+            </div>
+
+            <!-- Orderbook Microstructure & Pressure -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span>⚖️ Orderbook Microstructure</span>
+                </div>
+                <div class="pressure-labels">
+                    <span class="text-green" id="bid-press-lbl">50% Bid</span>
+                    <span class="text-red" id="ask-press-lbl">50% Ask</span>
+                </div>
+                <div class="pressure-bar-container">
+                    <div class="pressure-bid-fill" id="pressure-fill" style="width: 50%;"></div>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Best Bid</span>
+                    <span class="info-val text-green" id="best-bid">$0.00</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Best Ask</span>
+                    <span class="info-val text-red" id="best-ask">$0.00</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Spread</span>
+                    <span class="info-val text-yellow" id="spr-val">$0.00 (0.000%)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">▲ Bid Wall</span>
+                    <span class="info-val text-green" id="bid-wall-val">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">▼ Ask Wall</span>
+                    <span class="info-val text-red" id="ask-wall-val">--</span>
+                </div>
+            </div>
+
+            <!-- Session CVD & Vacuum -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span>🌊 Order Flow & CVD</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Session CVD Delta</span>
+                    <span class="info-val" id="cvd-delta">+0.0 BTC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Liquidity Vacuum</span>
+                    <span class="info-val text-green" id="vac-status">BALANCED</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key">Anomaly Detector</span>
+                    <span class="info-val text-green" id="anom-status">Normal Flow</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Grid: Recent Trades & Whale Radar -->
+        <div class="bottom-grid">
+            <div class="panel">
+                <div class="panel-title">
+                    <span>⚡ Real-Time Trade Tape (Time & Sales)</span>
+                    <span class="tag-pill" style="font-size:10px;">LATEST TICKS</span>
+                </div>
+                <div class="trade-tape" id="trade-tape">
+                    <div style="color:var(--text-sub); text-align:center; padding:10px;">Waiting for trades...</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">
+                    <span>🐋 Whale Radar (Large Orders)</span>
+                    <span class="tag-pill text-gold" style="font-size:10px;">≥ 2.0 BTC</span>
+                </div>
+                <div class="trade-tape" id="whale-tape">
+                    <div style="color:var(--text-sub); text-align:center; padding:10px;">Listening for whale orders...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script: Real-Time Data Streaming & Candlestick Chart Engine -->
+    <script>
+        let chart = null;
+        let candleSeries = null;
+        let volumeSeries = null;
+        let ema9Series = null;
+        let ema21Series = null;
+        let isUsingFallbackCanvas = false;
+        let klinesData = [];
+        let latestOrderbook = null;
+        let lastPrice = 0;
+
+        // User Settings (Stored in LocalStorage)
+        let showVolume = localStorage.getItem('btc_show_volume') !== 'false'; // default true
+        let showHeatmap = localStorage.getItem('btc_show_heatmap') !== 'false'; // default true
+        let showEma = localStorage.getItem('btc_show_ema') !== 'false'; // default true
+
+        function formatComma(num, decimals) {
+            if (decimals === undefined) decimals = 2;
+            if (isNaN(num) || num === null) return "0.00";
+            return Number(num).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+
+        // Toggle Volume ON/OFF
+        function toggleVolume() {
+            showVolume = !showVolume;
+            localStorage.setItem('btc_show_volume', showVolume ? 'true' : 'false');
+            applyVolumeSetting();
+        }
+
+        function applyVolumeSetting() {
+            const btn = document.getElementById('btn-toggle-vol');
+            if (showVolume) {
+                btn.className = 'tool-btn active-vol';
+                btn.innerHTML = '📊 Volume: ON';
+                if (volumeSeries) {
+                    volumeSeries.applyOptions({ visible: true });
+                }
+                if (candleSeries) {
+                    candleSeries.applyOptions({
+                        scaleMargins: { top: 0.08, bottom: 0.22 }
+                    });
+                }
+            } else {
+                btn.className = 'tool-btn';
+                btn.innerHTML = '📊 Volume: OFF';
+                if (volumeSeries) {
+                    volumeSeries.applyOptions({ visible: false });
+                }
+                if (candleSeries) {
+                    // Full height for candlesticks without volume obstruction!
+                    candleSeries.applyOptions({
+                        scaleMargins: { top: 0.04, bottom: 0.04 }
+                    });
+                }
+            }
+            if (isUsingFallbackCanvas) {
+                drawCanvasChart();
+            }
+        }
+
+        // Toggle Heatmap ON/OFF
+        function toggleHeatmap() {
+            showHeatmap = !showHeatmap;
+            localStorage.setItem('btc_show_heatmap', showHeatmap ? 'true' : 'false');
+            applyHeatmapSetting();
+        }
+
+        function applyHeatmapSetting() {
+            const btn = document.getElementById('btn-toggle-heat');
+            const canvas = document.getElementById('heatmap-canvas');
+            if (showHeatmap) {
+                btn.className = 'tool-btn active-heat';
+                btn.innerHTML = '🔥 Heatmap: ON';
+                canvas.style.display = 'block';
+                renderHeatmapOverlay();
+            } else {
+                btn.className = 'tool-btn';
+                btn.innerHTML = '🔥 Heatmap: OFF';
+                canvas.style.display = 'none';
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            if (isUsingFallbackCanvas) {
+                drawCanvasChart();
+            }
+        }
+
+        // Toggle EMA ON/OFF
+        function toggleEma() {
+            showEma = !showEma;
+            localStorage.setItem('btc_show_ema', showEma ? 'true' : 'false');
+            applyEmaSetting();
+        }
+
+        function applyEmaSetting() {
+            const btn = document.getElementById('btn-toggle-ema');
+            if (showEma) {
+                btn.className = 'tool-btn active';
+                btn.innerHTML = '📈 EMA 9/21: ON';
+                if (ema9Series) ema9Series.applyOptions({ visible: true });
+                if (ema21Series) ema21Series.applyOptions({ visible: true });
+            } else {
+                btn.className = 'tool-btn';
+                btn.innerHTML = '📈 EMA 9/21: OFF';
+                if (ema9Series) ema9Series.applyOptions({ visible: false });
+                if (ema21Series) ema21Series.applyOptions({ visible: false });
+            }
+            if (isUsingFallbackCanvas) {
+                drawCanvasChart();
+            }
+        }
+
+        // Initialize TradingView Lightweight Charts
+        function initChart() {
+            const container = document.getElementById('chart-container');
+            const heatCanvas = document.getElementById('heatmap-canvas');
+
+            function syncHeatmapCanvasSize() {
+                heatCanvas.width = container.clientWidth;
+                heatCanvas.height = container.clientHeight;
+                renderHeatmapOverlay();
+            }
+
+            if (typeof LightweightCharts !== 'undefined') {
+                try {
+                    chart = LightweightCharts.createChart(container, {
+                        width: container.clientWidth,
+                        height: container.clientHeight,
+                        layout: {
+                            background: { color: '#151922' },
+                            textColor: '#8c9ba5',
+                        },
+                        grid: {
+                            vertLines: { color: 'rgba(38, 47, 61, 0.4)' },
+                            horzLines: { color: 'rgba(38, 47, 61, 0.4)' },
+                        },
+                        crosshair: {
+                            mode: LightweightCharts.CrosshairMode.Normal,
+                        },
+                        rightPriceScale: {
+                            borderColor: '#262f3d',
+                            scaleMargins: {
+                                top: showVolume ? 0.08 : 0.04,
+                                bottom: showVolume ? 0.22 : 0.04,
+                            },
+                        },
+                        timeScale: {
+                            borderColor: '#262f3d',
+                            timeVisible: true,
+                            secondsVisible: false,
+                        },
+                    });
+
+                    // Candlestick Series
+                    candleSeries = chart.addCandlestickSeries({
+                        upColor: '#26a69a',
+                        downColor: '#ef5350',
+                        borderVisible: false,
+                        wickUpColor: '#26a69a',
+                        wickDownColor: '#ef5350',
+                    });
+
+                    // Volume Series
+                    volumeSeries = chart.addHistogramSeries({
+                        color: '#26a69a',
+                        priceFormat: {
+                            type: 'volume',
+                        },
+                        priceScaleId: '',
+                        scaleMargins: {
+                            top: 0.8,
+                            bottom: 0,
+                        },
+                        visible: showVolume,
+                    });
+
+                    // EMA 9 Series (Cyan)
+                    ema9Series = chart.addLineSeries({
+                        color: '#00f2fe',
+                        lineWidth: 2,
+                        title: 'EMA 9',
+                        visible: showEma,
+                    });
+
+                    // EMA 21 Series (Gold)
+                    ema21Series = chart.addLineSeries({
+                        color: '#fbbf24',
+                        lineWidth: 2,
+                        title: 'EMA 21',
+                        visible: showEma,
+                    });
+
+                    // Sync heatmap on chart pan/zoom or crosshair move
+                    chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+                        requestAnimationFrame(renderHeatmapOverlay);
+                    });
+                    chart.subscribeCrosshairMove(param => {
+                        if (param.time) {
+                            const price = param.seriesPrices.get(candleSeries);
+                            if (price) {
+                                document.getElementById('ohlc-info').innerText =
+                                    "O: " + formatComma(price.open) + "  H: " + formatComma(price.high) + "  L: " + formatComma(price.low) + "  C: " + formatComma(price.close);
+                            }
+                        }
+                    });
+
+                    window.addEventListener('resize', () => {
+                        if (chart) {
+                            chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+                            syncHeatmapCanvasSize();
+                        }
+                    });
+
+                    syncHeatmapCanvasSize();
+                    applyVolumeSetting();
+                    applyHeatmapSetting();
+                    applyEmaSetting();
+                    return;
+                } catch (e) {
+                    console.warn("Lightweight charts initialization failed, falling back to canvas:", e);
+                }
+            }
+            // Fallback to Canvas
+            initCanvasFallback();
+        }
+
+        // Render Liquidity Depth Heatmap on Canvas Overlay
+        function renderHeatmapOverlay() {
+            if (!showHeatmap || !latestOrderbook) return;
+            const canvas = document.getElementById('heatmap-canvas');
+            if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            if (!candleSeries || typeof candleSeries.priceToCoordinate !== 'function') return;
+
+            const bids = latestOrderbook.bids_depth || [];
+            const asks = latestOrderbook.asks_depth || [];
+            if (!bids.length && !asks.length) return;
+
+            const allSizes = bids.map(b => b[1]).concat(asks.map(a => a[1]));
+            const maxSz = Math.max(8.0, ...allSizes);
+
+            // 1. Draw Bids Heatmap Bands (Cyan/Aqua Gradient)
+            for (let i = 0; i < bids.length; i++) {
+                const price = bids[i][0];
+                const size = bids[i][1];
+                const y = candleSeries.priceToCoordinate(price);
+                if (y === null || y < -10 || y > h + 10) continue;
+
+                const intensity = Math.min(1.0, Math.max(0.1, size / maxSz));
+                const barWidth = Math.min(w * 0.7, (w * 0.15) + (size / maxSz) * (w * 0.55));
+                const isWall = size >= 6.0;
+
+                // Horizontal glowing gradient ribbon
+                const grad = ctx.createLinearGradient(w - 70, y, w - 70 - barWidth, y);
+                if (isWall) {
+                    grad.addColorStop(0, 'rgba(0, 242, 254, 0.45)');
+                    grad.addColorStop(0.5, 'rgba(0, 242, 254, 0.18)');
+                    grad.addColorStop(1, 'rgba(0, 242, 254, 0.0)');
+                } else {
+                    grad.addColorStop(0, `rgba(38, 166, 154, ${intensity * 0.35})`);
+                    grad.addColorStop(0.6, `rgba(38, 166, 154, ${intensity * 0.1})`);
+                    grad.addColorStop(1, 'rgba(38, 166, 154, 0)');
+                }
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(w - 70 - barWidth, y - 2, barWidth, 4);
+
+                // Highlight prominent liquidity walls
+                if (isWall) {
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(w - 70 - barWidth, y);
+                    ctx.lineTo(w - 70, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Wall size tag pill on right edge
+                    ctx.fillStyle = 'rgba(0, 242, 254, 0.85)';
+                    ctx.font = 'bold 10px monospace';
+                    ctx.fillText(`▲ ${size.toFixed(1)}B`, w - 65, y + 3);
+                }
+            }
+
+            // 2. Draw Asks Heatmap Bands (Gold/Orange Gradient)
+            for (let i = 0; i < asks.length; i++) {
+                const price = asks[i][0];
+                const size = asks[i][1];
+                const y = candleSeries.priceToCoordinate(price);
+                if (y === null || y < -10 || y > h + 10) continue;
+
+                const intensity = Math.min(1.0, Math.max(0.1, size / maxSz));
+                const barWidth = Math.min(w * 0.7, (w * 0.15) + (size / maxSz) * (w * 0.55));
+                const isWall = size >= 6.0;
+
+                const grad = ctx.createLinearGradient(w - 70, y, w - 70 - barWidth, y);
+                if (isWall) {
+                    grad.addColorStop(0, 'rgba(251, 191, 36, 0.45)');
+                    grad.addColorStop(0.5, 'rgba(251, 191, 36, 0.18)');
+                    grad.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+                } else {
+                    grad.addColorStop(0, `rgba(239, 83, 80, ${intensity * 0.35})`);
+                    grad.addColorStop(0.6, `rgba(239, 83, 80, ${intensity * 0.1})`);
+                    grad.addColorStop(1, 'rgba(239, 83, 80, 0)');
+                }
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(w - 70 - barWidth, y - 2, barWidth, 4);
+
+                if (isWall) {
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(w - 70 - barWidth, y);
+                    ctx.lineTo(w - 70, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
+                    ctx.font = 'bold 10px monospace';
+                    ctx.fillText(`▼ ${size.toFixed(1)}B`, w - 65, y + 3);
+                }
+            }
+        }
+
+        // Canvas fallback candlestick drawer if offline
+        function initCanvasFallback() {
+            isUsingFallbackCanvas = true;
+            const container = document.getElementById('chart-container');
+            const canvas = document.getElementById('fallback-canvas');
+            canvas.style.display = 'block';
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            drawCanvasChart();
+            window.addEventListener('resize', () => {
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                drawCanvasChart();
+            });
+            applyVolumeSetting();
+            applyHeatmapSetting();
+            applyEmaSetting();
+        }
+
+        function drawCanvasChart() {
+            if (!isUsingFallbackCanvas || !klinesData.length) return;
+            const canvas = document.getElementById('fallback-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Background & Grid
+            ctx.fillStyle = "#151922";
+            ctx.fillRect(0, 0, w, h);
+
+            let minP = Math.min(...klinesData.map(k => k.low));
+            let maxP = Math.max(...klinesData.map(k => k.high));
+            const range = (maxP - minP) || 1;
+            const bottomMargin = showVolume ? 90 : 30;
+            const chartH = h - bottomMargin - 30;
+            const candleW = Math.max(3, (w - 70) / klinesData.length);
+
+            // 1. Heatmap background bands on fallback canvas
+            if (showHeatmap && latestOrderbook) {
+                const bids = latestOrderbook.bids_depth || [];
+                const asks = latestOrderbook.asks_depth || [];
+                const maxSz = Math.max(8.0, ...bids.map(b => b[1]), ...asks.map(a => a[1]));
+
+                bids.concat(asks).forEach(level => {
+                    const price = level[0];
+                    const size = level[1];
+                    if (price >= minP && price <= maxP) {
+                        const y = h - bottomMargin - ((price - minP) / range) * chartH;
+                        const isBid = price < (lastPrice || (minP + maxP) / 2);
+                        const intensity = Math.min(1.0, size / maxSz);
+                        const bWidth = (w * 0.1) + intensity * (w * 0.4);
+                        ctx.fillStyle = isBid ? `rgba(0, 242, 254, ${intensity * 0.25})` : `rgba(251, 191, 36, ${intensity * 0.25})`;
+                        ctx.fillRect(w - 70 - bWidth, y - 2, bWidth, 4);
+                    }
+                });
+            }
+
+            // 2. Draw candles
+            klinesData.forEach((k, i) => {
+                const x = 20 + i * candleW;
+                const yO = h - bottomMargin - ((k.open - minP) / range) * chartH;
+                const yC = h - bottomMargin - ((k.close - minP) / range) * chartH;
+                const yH = h - bottomMargin - ((k.high - minP) / range) * chartH;
+                const yL = h - bottomMargin - ((k.low - minP) / range) * chartH;
+
+                const isUp = k.close >= k.open;
+                const col = isUp ? "#26a69a" : "#ef5350";
+                ctx.strokeStyle = col;
+                ctx.fillStyle = col;
+
+                // Wick
+                ctx.beginPath();
+                ctx.moveTo(x + candleW/2, yH);
+                ctx.lineTo(x + candleW/2, yL);
+                ctx.stroke();
+
+                // Body
+                const bodyY = Math.min(yO, yC);
+                const bodyH = Math.max(2, Math.abs(yO - yC));
+                ctx.fillRect(x + 1, bodyY, Math.max(1, candleW - 2), bodyH);
+
+                // Volume bars if enabled
+                if (showVolume) {
+                    const maxV = Math.max(...klinesData.map(d => d.volume)) || 1;
+                    const vH = (k.volume / maxV) * 55;
+                    ctx.fillStyle = isUp ? "rgba(38, 166, 154, 0.35)" : "rgba(239, 83, 80, 0.35)";
+                    ctx.fillRect(x + 1, h - 15 - vH, Math.max(1, candleW - 2), vH);
+                }
+            });
+        }
+
+        // Fetch Historical / Seed Klines
+        async function fetchKlines() {
+            try {
+                const res = await fetch('/api/klines');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.length) {
+                    klinesData = data;
+                    if (candleSeries) {
+                        const formatted = data.map(k => ({
+                            time: Math.floor(k.start / 1000),
+                            open: k.open,
+                            high: k.high,
+                            low: k.low,
+                            close: k.close,
+                        }));
+                        candleSeries.setData(formatted);
+
+                        if (volumeSeries) {
+                            const volumes = data.map(k => ({
+                                time: Math.floor(k.start / 1000),
+                                value: k.volume,
+                                color: k.close >= k.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)',
+                            }));
+                            volumeSeries.setData(volumes);
+                        }
+
+                        // Calculate EMA on klines
+                        calculateAndSetEMAs(data);
+                    } else if (isUsingFallbackCanvas) {
+                        drawCanvasChart();
+                    }
+                    renderHeatmapOverlay();
+                }
+            } catch (e) {
+                console.error("fetchKlines error", e);
+            }
+        }
+
+        function calculateAndSetEMAs(data) {
+            if (!ema9Series || !ema21Series) return;
+            const calcEma = (period) => {
+                const k = 2 / (period + 1);
+                let ema = data[0].close;
+                return data.map(d => {
+                    ema = d.close * k + ema * (1 - k);
+                    return { time: Math.floor(d.start / 1000), value: ema };
+                });
+            };
+            ema9Series.setData(calcEma(9));
+            ema21Series.setData(calcEma(21));
+        }
+
+        // Poll Live State every 600ms
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                if (res.status === 503) {
+                    window.location.reload();
+                    return;
+                }
+                if (!res.ok) return;
+                const st = await res.json();
+                latestOrderbook = st.orderbook;
+
+                // 1. Hero Header
+                const pEl = document.getElementById('hero-price');
+                if (lastPrice > 0 && st.last_price !== lastPrice) {
+                    pEl.style.color = st.last_price > lastPrice ? '#26a69a' : '#ef5350';
+                    setTimeout(() => { pEl.style.color = 'var(--text-main)'; }, 400);
+                }
+                lastPrice = st.last_price;
+                pEl.innerText = "$" + formatComma(st.last_price, 2);
+
+                const chgEl = document.getElementById('hero-chg');
+                const isPos = st.price_change_24h >= 0;
+                chgEl.innerText = (isPos ? '+' : '') + st.price_change_24h.toFixed(2) + "%";
+                chgEl.className = "price-chg " + (isPos ? 'bg-green' : 'bg-red');
+
+                document.getElementById('hero-high').innerText = "$" + formatComma(st.high_24h, 0);
+                document.getElementById('hero-low').innerText = "$" + formatComma(st.low_24h, 0);
+                document.getElementById('hero-vol').innerText = formatComma(st.volume_24h, 0) + " BTC";
+
+                const arbSign = st.arb_diff >= 0 ? '+' : '';
+                document.getElementById('hero-arb').innerText = "Bin: $" + formatComma(st.binance_price, 0) + " (" + arbSign + st.arb_diff.toFixed(1) + ")";
+                document.getElementById('hero-funding').innerText = (st.funding_rate >= 0 ? '+' : '') + st.funding_rate.toFixed(4) + "%";
+
+                // 2. Confluence Signal
+                const score = st.confluence.score;
+                const scEl = document.getElementById('conf-score');
+                scEl.innerText = (score >= 0 ? '+' : '') + score;
+                scEl.style.color = score > 15 ? 'var(--green)' : (score < -15 ? 'var(--red)' : 'var(--yellow)');
+                document.getElementById('conf-bias').innerText = st.confluence.bias;
+                document.getElementById('conf-setup').innerText = st.confluence.setup;
+                document.getElementById('conf-badge').innerText = score > 15 ? 'BULLISH' : (score < -15 ? 'BEARISH' : 'NEUTRAL');
+                document.getElementById('rsi-val').innerText = st.rsi.toFixed(1);
+                document.getElementById('ema-trend').innerText = st.ema9 >= st.ema21 ? 'BULLISH ▲' : 'BEARISH ▼';
+                document.getElementById('ema-trend').className = "info-val " + (st.ema9 >= st.ema21 ? 'text-green' : 'text-red');
+
+                // 3. Orderbook Pressure
+                const bRatio = st.orderbook.pressure_bid_ratio;
+                document.getElementById('pressure-fill').style.width = bRatio + "%";
+                document.getElementById('bid-press-lbl').innerText = bRatio.toFixed(0) + "% Bid";
+                document.getElementById('ask-press-lbl').innerText = (100 - bRatio).toFixed(0) + "% Ask";
+                document.getElementById('best-bid').innerText = "$" + formatComma(st.orderbook.best_bid, 2);
+                document.getElementById('best-ask').innerText = "$" + formatComma(st.orderbook.best_ask, 2);
+                document.getElementById('spr-val').innerText = "$" + st.orderbook.spread.toFixed(2);
+                document.getElementById('bid-wall-val').innerText = "$" + formatComma(st.orderbook.bid_wall_price, 0) + " (" + st.orderbook.bid_wall_size.toFixed(1) + " BTC)";
+                document.getElementById('ask-wall-val').innerText = "$" + formatComma(st.orderbook.ask_wall_price, 0) + " (" + st.orderbook.ask_wall_size.toFixed(1) + " BTC)";
+
+                // 4. CVD & Vacuum
+                const cvdDelta = st.session_cvd.delta;
+                const deltaEl = document.getElementById('cvd-delta');
+                deltaEl.innerText = (cvdDelta >= 0 ? '+' : '') + cvdDelta.toFixed(1) + " BTC";
+                deltaEl.className = "info-val " + (cvdDelta >= 0 ? 'text-green' : 'text-red');
+                document.getElementById('vac-status').innerText = st.vacuum_status;
+                document.getElementById('anom-status').innerText = st.latest_anomaly || "Normal Flow";
+
+                // 5. Update latest candlestick in chart
+                if (candleSeries && klinesData.length) {
+                    const lastK = klinesData[klinesData.length - 1];
+                    if (st.last_price > 0) {
+                        const updatedHigh = Math.max(lastK.high, st.last_price);
+                        const updatedLow = Math.min(lastK.low, st.last_price);
+                        candleSeries.update({
+                            time: Math.floor(lastK.start / 1000),
+                            open: lastK.open,
+                            high: updatedHigh,
+                            low: updatedLow,
+                            close: st.last_price,
+                        });
+                    }
+                }
+
+                // 6. Update Heatmap Overlay
+                renderHeatmapOverlay();
+
+                // 7. Recent Trades
+                if (st.recent_trades && st.recent_trades.length) {
+                    const tape = document.getElementById('trade-tape');
+                    tape.innerHTML = st.recent_trades.slice(0, 15).map(tr => {
+                        const isBuy = tr.side === 'Buy';
+                        const time = new Date(tr.ts * 1000).toTimeString().split(' ')[0];
+                        const cls = isBuy ? 'trade-buy' : 'trade-sell';
+                        return '<div class="trade-row ' + cls + '">' +
+                            '<span>' + time + '</span>' +
+                            '<span><strong>' + tr.side.toUpperCase() + '</strong></span>' +
+                            '<span>' + tr.vol.toFixed(2) + ' BTC</span>' +
+                            '<span style="text-align:right;">$' + formatComma(tr.price, 1) + '</span>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                // 8. Whales
+                if (st.recent_whales && st.recent_whales.length) {
+                    const wTape = document.getElementById('whale-tape');
+                    wTape.innerHTML = st.recent_whales.slice(0, 8).map(w => {
+                        const time = new Date(w.ts * 1000).toTimeString().split(' ')[0];
+                        const isBuy = w.side === 'Buy';
+                        const sideCls = isBuy ? 'text-green' : 'text-red';
+                        return '<div class="trade-row trade-whale">' +
+                            '<span>' + time + '</span>' +
+                            '<span class="' + sideCls + '">🐋 ' + w.side.toUpperCase() + '</span>' +
+                            '<span class="text-gold">' + w.vol.toFixed(2) + ' BTC</span>' +
+                            '<span style="text-align:right;">$' + formatComma(w.price, 0) + '</span>' +
+                        '</div>';
+                    }).join('');
+                }
+            } catch (e) {
+                console.error("fetchState error", e);
+            }
+        }
+
+        // Lifecycle
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            fetchKlines();
+            fetchState();
+            setInterval(fetchState, 600);
+            setInterval(fetchKlines, 10000);
+        });
+    </script>
+</body>
+</html>

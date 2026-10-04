@@ -7,7 +7,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
     // 1. Ticker
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "3", "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"])
+        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -20,7 +20,7 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
 
     // 2. Klines
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "3", "https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=1&limit=60"])
+        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=1&limit=60"])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -54,7 +54,7 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
 
     // 3. Orderbook
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "3", "https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=50"])
+        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=50"])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -68,14 +68,21 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
     }
 
     // 4. Binance Price
-    if let Ok(output) = std::process::Command::new("curl")
-        .args(["-s", "--max-time", "2", "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"])
-        .output()
-    {
-        if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
-            if let Some(p) = val.get("price").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()) {
-                let mut st = state.write().await;
-                st.binance_price = p;
+    let binance_urls = [
+        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+        "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+    ];
+    for url in &binance_urls {
+        if let Ok(output) = std::process::Command::new("curl")
+            .args(["-4", "-s", "--max-time", "3", url])
+            .output()
+        {
+            if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                if let Some(p) = val.get("price").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()) {
+                    let mut st = state.write().await;
+                    st.binance_price = p;
+                    break;
+                }
             }
         }
     }

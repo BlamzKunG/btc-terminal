@@ -30,12 +30,15 @@ The terminal streams low-latency market data directly from Bybit and Binance Web
 - Terminal Control and Customization:
   - Clean terminal restore on exit.
   - Persistent settings stored in standard configuration directory.
+  - Built-in embedded real-time Web Dashboard with interactive Candlestick Chart (OHLCV).
+  - Web UI can be toggled on/off dynamically from the CLI settings menu (`m`).
 
-## Terminal Views
+## Terminal Views & Web Interface
 
 1. Dashboard View (Tab 1): Comprehensive overview featuring price, 24h range, 25-minute sparkline trend, multi-exchange spread, confluence signals, technicals, whale radar, liquidity vacuum, and microstructure pressure.
 2. Ladder / Depth Matrix View (Tab 2): Vertical orderbook ladder showing live resting bid and ask depth, dynamic heatmap bars, liquidity walls, mid-price boundary, and session CVD.
 3. 2D Heatmap View (Tab 3): Matrix displaying orderbook depth evolution across price bands over time slices.
+4. Web Dashboard (`http://localhost:8080`): Browser-based live Candlestick (OHLCV) chart with EMA 9/21, Volume histogram, real-time Orderbook pressure bar, CVD delta, and live Trade Tape. Toggleable via CLI menu (`m`).
 
 ## Keyboard Shortcuts
 
@@ -45,7 +48,7 @@ The terminal streams low-latency market data directly from Bybit and Binance Web
 - + / =: Increase price aggregation step.
 - - / _: Decrease price aggregation step.
 - w / W: Cycle whale trade threshold (0.5, 1.0, 2.0, 5.0, 10.0 BTC).
-- m: Open / close terminal display configuration menu.
+- m: Open / close terminal display configuration menu (toggle Web Dashboard, Whale Radar, Signals, etc.).
 - q: Exit cleanly and restore terminal buffer.
 
 ## Installation and Build
@@ -83,6 +86,7 @@ Options:
   --dash           Start directly in Dashboard view (Page 1)
   --book           Start directly in BookMap / Ladder view (Page 2)
   --heat           Start directly in 2D Heatmap view (Page 3)
+  --web            Start in headless Web Server mode (http://localhost:8080)
   -p, --page <N>   Select starting page (1, 2, or 3)
   -i <SECONDS>     Set UI refresh interval in seconds (default: 0.1)
   --once           Render a single frame snapshot and exit

@@ -1,6 +1,7 @@
 mod state;
 mod types;
 mod ui;
+mod web;
 mod ws;
 
 use crossterm::{
@@ -28,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut initial_page = Settings::load().default_page;
     let mut open_menu = false;
     let mut run_once = false;
+    let mut web_only = false;
     let mut interval_ms = 100u64;
 
     let mut i = 1;
@@ -36,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--dash" => initial_page = 1,
             "--book" => initial_page = 2,
             "--heat" => initial_page = 3,
+            "--web" | "--headless" => web_only = true,
             "-p" | "--page" => {
                 if i + 1 < args.len() {
                     if let Ok(p) = args[i + 1].parse::<usize>() {
@@ -101,9 +104,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if web_only {
+        println!("🚀 Starting BTC-Terminal Headless Web Server...");
+        {
+            let mut st = state.write().await;
+            st.settings.enable_web_ui = true;
+        }
+        tokio::spawn(ws::run_bybit_ws(state.clone()));
+        tokio::spawn(ws::run_binance_ws(state.clone()));
+        let slice_state = state.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+                let mut st = slice_state.write().await;
+                st.record_history_slice();
+                st.evaluate_anomalies_and_vacuum();
+            }
+        });
+        web::run_web_server(state.clone()).await;
+        return Ok(());
+    }
+
     // Spawn WebSocket tasks
     tokio::spawn(ws::run_bybit_ws(state.clone()));
     tokio::spawn(ws::run_binance_ws(state.clone()));
+
+    // Spawn Web Server task
+    tokio::spawn(web::run_web_server(state.clone()));
 
     // Periodic task for slices and anomaly detection
     let slice_state = state.clone();
@@ -156,10 +183,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     st.is_menu_open = false;
                                 }
                                 KeyCode::Up | KeyCode::Char('k') => {
-                                    st.menu_idx = (st.menu_idx + 6) % 7;
+                                    st.menu_idx = (st.menu_idx + 7) % 8;
                                 }
                                 KeyCode::Down | KeyCode::Char('j') => {
-                                    st.menu_idx = (st.menu_idx + 1) % 7;
+                                    st.menu_idx = (st.menu_idx + 1) % 8;
                                 }
                                 KeyCode::Enter | KeyCode::Char(' ') => {
                                     match st.menu_idx {
@@ -170,6 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         4 => st.settings.show_microstructure = !st.settings.show_microstructure,
                                         5 => st.settings.show_derivatives = !st.settings.show_derivatives,
                                         6 => st.settings.show_candles = !st.settings.show_candles,
+                                        7 => st.settings.enable_web_ui = !st.settings.enable_web_ui,
                                         _ => {}
                                     }
                                     st.settings.save();

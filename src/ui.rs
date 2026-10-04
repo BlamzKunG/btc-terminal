@@ -237,7 +237,7 @@ impl<'a> Widget for TerminalView<'a> {
         let mut row = inner.y;
 
         // Top Tab Bar with High-Contrast Pill Badges
-        render_top_tabs(st.current_page, inner_w, inner.x, row, buf);
+        render_top_tabs(st, inner_w, inner.x, row, buf);
         row += 1;
 
         draw_horizontal_divider(inner.x, row, inner_w, border_color, buf);
@@ -273,7 +273,8 @@ fn draw_horizontal_divider(x: u16, y: u16, width: usize, color: Color, buf: &mut
     }
 }
 
-fn render_top_tabs(current_page: usize, inner_w: usize, x: u16, y: u16, buf: &mut Buffer) {
+fn render_top_tabs(st: &MarketState, inner_w: usize, x: u16, y: u16, buf: &mut Buffer) {
+    let current_page = st.current_page;
     let mut cur_x = x + 1;
 
     // Tab 1: DASHBOARD
@@ -302,10 +303,20 @@ fn render_top_tabs(current_page: usize, inner_w: usize, x: u16, y: u16, buf: &mu
     if current_page == 3 {
         let t3 = " 3 2D HEATMAP ";
         buf.set_string(cur_x, y, t3, Style::default().bg(Color::Rgb(215, 100, 255)).fg(Color::Black).add_modifier(Modifier::BOLD));
+        cur_x += t3.chars().count() as u16 + 1;
     } else {
         buf.set_string(cur_x, y, "[3]", Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
-        buf.set_string(cur_x + 3, y, " 2D HEATMAP", Style::default().fg(Color::Rgb(160, 175, 195)));
+        buf.set_string(cur_x + 3, y, " 2D HEATMAP ", Style::default().fg(Color::Rgb(160, 175, 195)));
+        cur_x += 16;
     }
+
+    // Web UI Status Indicator
+    let (web_str, web_style) = if st.settings.enable_web_ui {
+        (format!(" [Web: :{} ON] ", st.settings.web_port), Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD))
+    } else {
+        (" [Web: OFF] ".to_string(), Style::default().fg(Color::DarkGray))
+    };
+    buf.set_string(cur_x, y, &web_str, web_style);
 
     // Switch hint at right
     let hint_spans: &[(&str, Style)] = &[
@@ -327,6 +338,7 @@ fn render_menu(st: &MarketState, inner_w: usize, x: u16, start_y: u16, buf: &mut
     draw_horizontal_divider(x, row, inner_w, Color::Yellow, buf);
     row += 2;
 
+    let web_label = format!("Web Dashboard (http://localhost:{})", st.settings.web_port);
     let items = [
         ("4-Layer Confluence Engine", st.settings.show_signal),
         ("Technical Indicators (RSI, EMA)", st.settings.show_technical),
@@ -335,6 +347,7 @@ fn render_menu(st: &MarketState, inner_w: usize, x: u16, start_y: u16, buf: &mut
         ("Orderbook Microstructure & Pressure", st.settings.show_microstructure),
         ("Derivatives & Market Metrics", st.settings.show_derivatives),
         ("Latest 1-Min Candlesticks", st.settings.show_candles),
+        (web_label.as_str(), st.settings.enable_web_ui),
     ];
 
     for (idx, (name, enabled)) in items.iter().enumerate() {

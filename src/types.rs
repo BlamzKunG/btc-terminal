@@ -6,6 +6,14 @@ fn default_ladder_rows() -> usize {
     10
 }
 
+fn default_enable_web_ui() -> bool {
+    true
+}
+
+fn default_web_port() -> u16 {
+    8080
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub default_page: usize,
@@ -20,6 +28,10 @@ pub struct Settings {
     pub whale_threshold: f64,
     #[serde(default = "default_ladder_rows")]
     pub ladder_rows: usize,
+    #[serde(default = "default_enable_web_ui")]
+    pub enable_web_ui: bool,
+    #[serde(default = "default_web_port")]
+    pub web_port: u16,
 }
 
 impl Default for Settings {
@@ -36,6 +48,8 @@ impl Default for Settings {
             ladder_step: 1.0,
             whale_threshold: 2.0,
             ladder_rows: 10,
+            enable_web_ui: true,
+            web_port: 8080,
         }
     }
 }
@@ -71,7 +85,7 @@ impl Settings {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeTick {
     pub ts: f64,
     pub vol: f64,
@@ -89,7 +103,7 @@ pub struct LargeTrade {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kline {
     pub start: i64,
     pub open: f64,
