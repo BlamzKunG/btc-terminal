@@ -115,21 +115,26 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
             Ok((ws_stream, _)) => {
                 let (mut ws_sink, mut ws_read) = ws_stream.split();
 
-                // Subscribe 500-level orderbook for maximum depth
+                // Subscribe 200-level orderbook (Bybit linear maximum supported level)
                 let sub_msg = serde_json::json!({
                     "op": "subscribe",
                     "args": [
-                        "orderbook.500.BTCUSDT",
+                        "orderbook.200.BTCUSDT",
                         "publicTrade.BTCUSDT",
                         "tickers.BTCUSDT",
-                        "kline.1.BTCUSDT",
-                        "allLiquidation.BTCUSDT"
+                        "kline.1.BTCUSDT"
                     ]
                 });
                 if ws_sink.send(Message::Text(sub_msg.to_string())).await.is_err() {
                     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                     continue;
                 }
+
+                let sub_liq = serde_json::json!({
+                    "op": "subscribe",
+                    "args": ["allLiquidation.BTCUSDT"]
+                });
+                let _ = ws_sink.send(Message::Text(sub_liq.to_string())).await;
 
                 let (tx, mut rx) = tokio::sync::mpsc::channel::<Message>(50);
 
@@ -159,6 +164,11 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
                     match msg {
                         Ok(Message::Text(text)) => {
                             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                                if let Some(success) = val.get("success").and_then(|s| s.as_bool()) {
+                                    if !success {
+                                        eprintln!("[Bybit WS Error] {}", text);
+                                    }
+                                }
                                 if let Some(topic) = val.get("topic").and_then(|t| t.as_str()) {
                                     let mut st = state.write().await;
                                     if topic.starts_with("orderbook") {
@@ -207,29 +217,35 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
 }
 
 pub async fn run_binance_ws(state: Arc<RwLock<MarketState>>) {
-    // Background task: periodically refresh 5000-level macro depth every 12 seconds
+    // Background task: periodically refresh 5000-level macro depth every 15 seconds
     let macro_state = state.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(12));
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15));
         loop {
             interval.tick().await;
-            let urls = [
-                "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
-                "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
-            ];
-            for u in &urls {
-                if let Ok(out) = std::process::Command::new("curl")
-                    .args(["-4", "-s", "--max-time", "5", u])
-                    .output()
-                {
-                    if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
-                        if val.get("bids").is_some() {
-                            let mut st = macro_state.write().await;
-                            st.update_macro_depth(&val);
-                            break;
+            let res = tokio::task::spawn_blocking(|| {
+                let urls = [
+                    "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
+                    "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
+                ];
+                for u in &urls {
+                    if let Ok(out) = std::process::Command::new("curl")
+                        .args(["-4", "-s", "--max-time", "5", u])
+                        .output()
+                    {
+                        if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                            if val.get("bids").is_some() {
+                                return Some(val);
+                            }
                         }
                     }
                 }
+                None
+            }).await;
+
+            if let Ok(Some(val)) = res {
+                let mut st = macro_state.write().await;
+                st.update_macro_depth(&val);
             }
         }
     });

@@ -314,6 +314,11 @@ impl MarketState {
             }
 
             if price > 0.0 && vol > 0.0 && (side == "Buy" || side == "Sell") {
+                if self.last_price > 0.0 && (price - self.last_price).abs() > 0.001 {
+                    self.prev_price = self.last_price;
+                }
+                self.last_price = price;
+
                 self.pending_trades.push((price, vol, side.clone()));
                 self.trade_ticks.push_back(TradeTick {
                     ts: now,
