@@ -192,11 +192,41 @@ impl MarketState {
         self.ws_updates += 1;
     }
 
+    pub fn update_macro_depth(&mut self, data: &serde_json::Value) {
+        if let Some(bids) = data.get("bids").and_then(|v| v.as_array()) {
+            for item in bids {
+                if let (Some(p), Some(s)) = (
+                    item.get(0).and_then(|v| v.as_str()).and_then(|x| x.parse::<f64>().ok()),
+                    item.get(1).and_then(|v| v.as_str()).and_then(|x| x.parse::<f64>().ok()),
+                ) {
+                    if s > 0.0 {
+                        self.bids.insert(to_key(p), s);
+                    }
+                }
+            }
+        }
+        if let Some(asks) = data.get("asks").and_then(|v| v.as_array()) {
+            for item in asks {
+                if let (Some(p), Some(s)) = (
+                    item.get(0).and_then(|v| v.as_str()).and_then(|x| x.parse::<f64>().ok()),
+                    item.get(1).and_then(|v| v.as_str()).and_then(|x| x.parse::<f64>().ok()),
+                ) {
+                    if s > 0.0 {
+                        self.asks.insert(to_key(p), s);
+                    }
+                }
+            }
+        }
+        self.ws_updates += 1;
+    }
+
     pub fn update_orderbook(&mut self, msg_type: &str, data: &serde_json::Value) {
         let now = now_secs();
         if msg_type == "snapshot" {
-            self.bids.clear();
-            self.asks.clear();
+            if self.bids.len() < 500 {
+                self.bids.clear();
+                self.asks.clear();
+            }
             if let Some(bids) = data.get("b").and_then(|v| v.as_array()) {
                 for item in bids {
                     if let (Some(p), Some(s)) = (
@@ -452,13 +482,41 @@ impl MarketState {
         }
     }
 
+    pub fn get_macro_depth_buckets(&self, step: f64, range: f64) -> (Vec<(f64, f64)>, Vec<(f64, f64)>) {
+        let center = if self.last_price > 0.0 { self.last_price } else { 85000.0 };
+        let min_p = center - range;
+        let max_p = center + range;
+
+        let mut bid_buckets: BTreeMap<i64, f64> = BTreeMap::new();
+        for (k, sz) in self.bids.range(to_key(min_p)..=to_key(center)) {
+            let p = from_key(*k);
+            let b_key = (p / step).floor() as i64;
+            *bid_buckets.entry(b_key).or_insert(0.0) += *sz;
+        }
+
+        let mut ask_buckets: BTreeMap<i64, f64> = BTreeMap::new();
+        for (k, sz) in self.asks.range(to_key(center)..=to_key(max_p)) {
+            let p = from_key(*k);
+            let b_key = (p / step).floor() as i64;
+            *ask_buckets.entry(b_key).or_insert(0.0) += *sz;
+        }
+
+        let bids_vec: Vec<(f64, f64)> = bid_buckets.into_iter().rev()
+            .map(|(k, sz)| ((k as f64) * step, sz))
+            .collect();
+        let asks_vec: Vec<(f64, f64)> = ask_buckets.into_iter()
+            .map(|(k, sz)| ((k as f64) * step, sz))
+            .collect();
+
+        (bids_vec, asks_vec)
+    }
+
     pub fn record_history_slice(&mut self) {
         if self.last_price == 0.0 {
             return;
         }
         let now = now_secs();
-        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
-        let asks: Vec<(f64, f64)> = self.asks.iter().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
+        let (bids, asks) = self.get_macro_depth_buckets(2.5, 1500.0);
         let trades = std::mem::take(&mut self.pending_trades);
 
         self.history_slices.push_back(HistorySlice {
@@ -469,7 +527,7 @@ impl MarketState {
             trades,
         });
 
-        if self.history_slices.len() > 180 {
+        if self.history_slices.len() > 300 {
             self.history_slices.pop_front();
         }
         self.last_slice_ts = now;
@@ -484,8 +542,7 @@ impl MarketState {
         let c_high = self.klines.first().map(|k| k.high).unwrap_or(self.last_price);
         let c_low = self.klines.first().map(|k| k.low).unwrap_or(self.last_price);
 
-        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
-        let asks: Vec<(f64, f64)> = self.asks.iter().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
+        let (bids, asks) = self.get_macro_depth_buckets(2.5, 1500.0);
 
         for i in 0..count {
             let t = (i as f64) / ((count.max(2) - 1) as f64);

@@ -130,8 +130,9 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                                 let (score, bias, setup) = st.evaluate_confluence();
                                 let (pressure_ratio, b_vol, a_vol) = st.get_orderbook_pressure(20);
                                 let (asks_ladder, bids_ladder, bid_wall, ask_wall) = st.get_ladder_rows(st.settings.ladder_step, 15);
-                                let bids_depth: Vec<[f64; 2]> = st.bids.iter().rev().take(50).map(|(k, s)| [crate::state::from_key(*k), *s]).collect();
-                                let asks_depth: Vec<[f64; 2]> = st.asks.iter().take(50).map(|(k, s)| [crate::state::from_key(*k), *s]).collect();
+                                let (macro_bids, macro_asks) = st.get_macro_depth_buckets(2.5, 1500.0);
+                                let bids_depth: Vec<[f64; 2]> = macro_bids.into_iter().map(|(p, s)| [p, s]).collect();
+                                let asks_depth: Vec<[f64; 2]> = macro_asks.into_iter().map(|(p, s)| [p, s]).collect();
 
                                 let asks_json: Vec<_> = asks_ladder.iter().map(|r| serde_json::json!({
                                     "price": r.price,

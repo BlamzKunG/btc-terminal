@@ -52,16 +52,15 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
         }
     }
 
-    // 3. Orderbook
+    // 3. Orderbook (500 levels)
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=50"])
+        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=500"])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
             if let Some(res) = val.get("result") {
                 let mut st = state.write().await;
                 st.update_orderbook("snapshot", res);
-                st.seed_initial_slices(60);
                 st.evaluate_anomalies_and_vacuum();
             }
         }
@@ -86,6 +85,27 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
             }
         }
     }
+
+    // 5. Binance Macro Depth (5,000 levels = ±$1,500+ macro overview!)
+    let binance_depth_urls = [
+        "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
+        "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
+    ];
+    for url in &binance_depth_urls {
+        if let Ok(output) = std::process::Command::new("curl")
+            .args(["-4", "-s", "--max-time", "6", url])
+            .output()
+        {
+            if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                if val.get("bids").is_some() {
+                    let mut st = state.write().await;
+                    st.update_macro_depth(&val);
+                    st.seed_initial_slices(60);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
@@ -95,11 +115,11 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
             Ok((ws_stream, _)) => {
                 let (mut ws_sink, mut ws_read) = ws_stream.split();
 
-                // Subscribe
+                // Subscribe 500-level orderbook for maximum depth
                 let sub_msg = serde_json::json!({
                     "op": "subscribe",
                     "args": [
-                        "orderbook.50.BTCUSDT",
+                        "orderbook.500.BTCUSDT",
                         "publicTrade.BTCUSDT",
                         "tickers.BTCUSDT",
                         "kline.1.BTCUSDT",
@@ -187,6 +207,33 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
 }
 
 pub async fn run_binance_ws(state: Arc<RwLock<MarketState>>) {
+    // Background task: periodically refresh 5000-level macro depth every 12 seconds
+    let macro_state = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(12));
+        loop {
+            interval.tick().await;
+            let urls = [
+                "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
+                "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
+            ];
+            for u in &urls {
+                if let Ok(out) = std::process::Command::new("curl")
+                    .args(["-4", "-s", "--max-time", "5", u])
+                    .output()
+                {
+                    if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                        if val.get("bids").is_some() {
+                            let mut st = macro_state.write().await;
+                            st.update_macro_depth(&val);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     let url = "wss://stream.binance.com:9443/ws/btcusdt@ticker";
     loop {
         match connect_async(url).await {
