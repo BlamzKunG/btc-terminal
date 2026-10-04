@@ -72,8 +72,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // If run_once, render one frame directly to buffer and print line-by-line
     if run_once {
         use ratatui::widgets::Widget;
-        let width = 68u16;
-        let height = 30u16;
+        let term_w = std::env::var("COLUMNS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(|| crossterm::terminal::size().map(|(w, _)| w).unwrap_or(110));
+        let term_h = std::env::var("LINES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(|| crossterm::terminal::size().map(|(_, h)| h).unwrap_or(36));
+        let width = term_w.max(68);
+        let height = term_h.max(25);
         let area = ratatui::layout::Rect::new(0, 0, width, height);
         let mut buf = ratatui::buffer::Buffer::empty(area);
         let st = state.read().await;
