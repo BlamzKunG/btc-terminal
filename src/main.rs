@@ -31,6 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut run_once = false;
     let mut web_only = false;
     let mut interval_ms = 100u64;
+    let mut custom_symbol: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -39,6 +40,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--book" => initial_page = 2,
             "--heat" => initial_page = 3,
             "--web" | "--headless" => web_only = true,
+            "-s" | "--symbol" => {
+                if i + 1 < args.len() {
+                    custom_symbol = Some(args[i + 1].to_uppercase());
+                    i += 1;
+                }
+            }
             "-p" | "--page" => {
                 if i + 1 < args.len() {
                     if let Ok(p) = args[i + 1].parse::<usize>() {
@@ -67,6 +74,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut st = state.write().await;
         st.current_page = initial_page;
         st.is_menu_open = open_menu;
+        if let Some(ref sym) = custom_symbol {
+            st.reset_for_symbol(sym);
+        }
     }
 
     // Initial seed from REST
@@ -100,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("{}", line);
             }
         }
-        println!(" [Tab] Page │ [+/-] Step: ${:.0} │ [r] Depth: {} │ [w] Whale: ≥{:.1}B │ [m] Menu │ [q] Exit", st.settings.ladder_step, st.settings.ladder_rows, st.settings.whale_threshold);
+        println!(" [Tab] Page │ [s] Symbol: {} │ [+/-] Step: ${:.1} │ [r] Depth: {} │ [w] Whale: ≥{:.1}{} │ [m] Menu │ [q] Exit", st.symbol, st.settings.ladder_step, st.settings.ladder_rows, st.settings.whale_threshold, st.asset_unit());
         return Ok(());
     }
 
@@ -213,6 +223,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 KeyCode::Char('2') => st.current_page = 2,
                                 KeyCode::Char('3') => st.current_page = 3,
                                 KeyCode::Char('m') => st.is_menu_open = true,
+                                KeyCode::Char('s') | KeyCode::Char('S') => {
+                                    let next_sym = match st.symbol.as_str() {
+                                        "BTCUSDT" => "XAUUSDT",
+                                        "XAUUSDT" => "ETHUSDT",
+                                        "ETHUSDT" => "SOLUSDT",
+                                        _ => "BTCUSDT",
+                                    };
+                                    st.reset_for_symbol(next_sym);
+                                    let state_clone = state.clone();
+                                    tokio::spawn(async move {
+                                        crate::ws::seed_from_rest(state_clone).await;
+                                    });
+                                }
                                 KeyCode::Char('+') | KeyCode::Char('=') => {
                                     st.settings.ladder_step = (st.settings.ladder_step + 1.0).min(50.0);
                                     st.settings.save();

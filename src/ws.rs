@@ -5,9 +5,14 @@ use tokio::sync::RwLock;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
+    let (symbol, bin_symbol) = {
+        let st = state.read().await;
+        (st.symbol.clone(), st.binance_symbol().to_string())
+    };
+
     // 1. Ticker
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"])
+        .args(["-4", "-s", "--max-time", "5", &format!("https://api.bybit.com/v5/market/tickers?category=linear&symbol={}", symbol)])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -20,7 +25,7 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
 
     // 2. Klines
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=1&limit=60"])
+        .args(["-4", "-s", "--max-time", "5", &format!("https://api.bybit.com/v5/market/kline?category=linear&symbol={}&interval=1&limit=60", symbol)])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -52,9 +57,9 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
         }
     }
 
-    // 3. Orderbook (500 levels)
+    // 3. Orderbook (200 levels)
     if let Ok(output) = std::process::Command::new("curl")
-        .args(["-4", "-s", "--max-time", "5", "https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=500"])
+        .args(["-4", "-s", "--max-time", "5", &format!("https://api.bybit.com/v5/market/orderbook?category=linear&symbol={}&limit=200", symbol)])
         .output()
     {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
@@ -68,8 +73,8 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
 
     // 4. Binance Price
     let binance_urls = [
-        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
-        "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+        format!("https://api.binance.com/api/v3/ticker/price?symbol={}", bin_symbol),
+        format!("https://data-api.binance.vision/api/v3/ticker/price?symbol={}", bin_symbol),
     ];
     for url in &binance_urls {
         if let Ok(output) = std::process::Command::new("curl")
@@ -86,10 +91,11 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
         }
     }
 
-    // 5. Binance Macro Depth (5,000 levels = ±$1,500+ macro overview!)
+    // 5. Binance Macro Depth
+    let bin_limit = if bin_symbol == "BTCUSDT" || bin_symbol == "ETHUSDT" || bin_symbol == "SOLUSDT" { 5000 } else { 1000 };
     let binance_depth_urls = [
-        "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
-        "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
+        format!("https://data-api.binance.vision/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
+        format!("https://api.binance.com/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
     ];
     for url in &binance_depth_urls {
         if let Ok(output) = std::process::Command::new("curl")
@@ -111,6 +117,9 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
 pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
     let url = "wss://stream.bybit.com/v5/public/linear";
     loop {
+        let sym = { state.read().await.symbol.clone() };
+        let active_sym = sym.clone();
+
         match connect_async(url).await {
             Ok((ws_stream, _)) => {
                 let (mut ws_sink, mut ws_read) = ws_stream.split();
@@ -119,10 +128,10 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
                 let sub_msg = serde_json::json!({
                     "op": "subscribe",
                     "args": [
-                        "orderbook.200.BTCUSDT",
-                        "publicTrade.BTCUSDT",
-                        "tickers.BTCUSDT",
-                        "kline.1.BTCUSDT"
+                        format!("orderbook.200.{}", sym),
+                        format!("publicTrade.{}", sym),
+                        format!("tickers.{}", sym),
+                        format!("kline.1.{}", sym)
                     ]
                 });
                 if ws_sink.send(Message::Text(sub_msg.to_string())).await.is_err() {
@@ -132,7 +141,7 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
 
                 let sub_liq = serde_json::json!({
                     "op": "subscribe",
-                    "args": ["allLiquidation.BTCUSDT"]
+                    "args": [format!("allLiquidation.{}", sym)]
                 });
                 let _ = ws_sink.send(Message::Text(sub_liq.to_string())).await;
 
@@ -161,6 +170,12 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
                 });
 
                 while let Some(msg) = ws_read.next().await {
+                    let cur_sym = { state.read().await.symbol.clone() };
+                    if cur_sym != active_sym {
+                        // Symbol changed! Reconnect and subscribe to new symbol
+                        break;
+                    }
+
                     match msg {
                         Ok(Message::Text(text)) => {
                             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
@@ -217,16 +232,18 @@ pub async fn run_bybit_ws(state: Arc<RwLock<MarketState>>) {
 }
 
 pub async fn run_binance_ws(state: Arc<RwLock<MarketState>>) {
-    // Background task: periodically refresh 5000-level macro depth every 15 seconds
+    // Background task: periodically refresh macro depth every 15 seconds
     let macro_state = state.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15));
         loop {
             interval.tick().await;
-            let res = tokio::task::spawn_blocking(|| {
+            let bin_sym = { macro_state.read().await.binance_symbol().to_string() };
+            let bin_limit = if bin_sym == "BTCUSDT" || bin_sym == "ETHUSDT" || bin_sym == "SOLUSDT" { 5000 } else { 1000 };
+            let res = tokio::task::spawn_blocking(move || {
                 let urls = [
-                    "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5000",
-                    "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000",
+                    format!("https://data-api.binance.vision/api/v3/depth?symbol={}&limit={}", bin_sym, bin_limit),
+                    format!("https://api.binance.com/api/v3/depth?symbol={}&limit={}", bin_sym, bin_limit),
                 ];
                 for u in &urls {
                     if let Ok(out) = std::process::Command::new("curl")
@@ -250,11 +267,22 @@ pub async fn run_binance_ws(state: Arc<RwLock<MarketState>>) {
         }
     });
 
-    let url = "wss://stream.binance.com:9443/ws/btcusdt@ticker";
     loop {
-        match connect_async(url).await {
+        let (sym, bin_sym) = {
+            let st = state.read().await;
+            (st.symbol.clone(), st.binance_symbol().to_lowercase())
+        };
+        let active_sym = sym.clone();
+
+        let url = format!("wss://stream.binance.com:9443/ws/{}@ticker", bin_sym);
+        match connect_async(&url).await {
             Ok((mut ws_stream, _)) => {
                 while let Some(msg) = ws_stream.next().await {
+                    let cur_sym = { state.read().await.symbol.clone() };
+                    if cur_sym != active_sym {
+                        break;
+                    }
+
                     match msg {
                         Ok(Message::Text(text)) => {
                             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {

@@ -14,6 +14,10 @@ fn default_web_port() -> u16 {
     8080
 }
 
+fn default_symbol() -> String {
+    "BTCUSDT".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub default_page: usize,
@@ -32,6 +36,8 @@ pub struct Settings {
     pub enable_web_ui: bool,
     #[serde(default = "default_web_port")]
     pub web_port: u16,
+    #[serde(default = "default_symbol")]
+    pub symbol: String,
 }
 
 impl Default for Settings {
@@ -50,6 +56,7 @@ impl Default for Settings {
             ladder_rows: 10,
             enable_web_ui: true,
             web_port: 8080,
+            symbol: "BTCUSDT".to_string(),
         }
     }
 }

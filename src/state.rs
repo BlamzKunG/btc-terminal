@@ -26,6 +26,8 @@ pub struct LadderRow {
 }
 
 pub struct MarketState {
+    pub symbol: String,
+
     // Ticker
     pub last_price: f64,
     pub prev_price: f64,
@@ -44,7 +46,7 @@ pub struct MarketState {
     // Arbitrage
     pub binance_price: f64,
 
-    // Orderbook (key: price * 100, val: size in BTC)
+    // Orderbook (key: price * 100, val: size in BTC/unit)
     pub bids: BTreeMap<i64, f64>,
     pub asks: BTreeMap<i64, f64>,
 
@@ -93,7 +95,9 @@ impl MarketState {
     pub fn new() -> Self {
         let settings = Settings::load();
         let default_page = settings.default_page;
+        let symbol = settings.symbol.clone();
         Self {
+            symbol,
             last_price: 0.0,
             prev_price: 0.0,
             price_change_24h: 0.0,
@@ -262,7 +266,7 @@ impl MarketState {
                         let prev_s = self.bids.get(&k).copied().unwrap_or(s);
                         let diff = prev_s - s;
                         if diff >= 2.5 {
-                            self.latest_spoof = Some(format!("BID PULL: -{:.1} BTC @ ${:.0}", diff, p));
+                            self.latest_spoof = Some(format!("BID PULL: -{:.1} {} @ ${:.1}", diff, self.asset_unit(), p));
                             self.spoof_ts = now;
                         }
                         if s <= 0.0 {
@@ -283,7 +287,7 @@ impl MarketState {
                         let prev_s = self.asks.get(&k).copied().unwrap_or(s);
                         let diff = prev_s - s;
                         if diff >= 2.5 {
-                            self.latest_spoof = Some(format!("ASK PULL: -{:.1} BTC @ ${:.0}", diff, p));
+                            self.latest_spoof = Some(format!("ASK PULL: -{:.1} {} @ ${:.1}", diff, self.asset_unit(), p));
                             self.spoof_ts = now;
                         }
                         if s <= 0.0 {
@@ -397,7 +401,7 @@ impl MarketState {
             "LONG REKT"
         };
 
-        self.latest_liq = Some(format!("{}: {:.2} BTC (${:.0}K) @ ${:.0}", tag, size, val_usd / 1000.0, price));
+        self.latest_liq = Some(format!("{}: {:.2} {} (${:.0}K) @ ${:.1}", tag, size, self.asset_unit(), val_usd / 1000.0, price));
         self.liq_ts = now_secs();
         self.ws_updates += 1;
     }
@@ -429,26 +433,27 @@ impl MarketState {
             .find(|(_, s)| **s >= 10.0)
             .map(|(k, s)| (from_key(*k), *s));
 
+        let u = self.asset_unit();
         if ask_25 < 1.8 {
             let wall_str = if let Some((p, s)) = ask_wall {
-                format!("+${:.1} ({:.1}B)", p - best_ask, s)
+                format!("+${:.1} ({:.1}{})", p - best_ask, s, u)
             } else {
                 "No Wall".to_string()
             };
-            self.vacuum_status = format!("THIN ASK ({:.1}B in +$25)", ask_25);
-            self.vacuum_alert = Some(format!("🔴 [VACUUM] THIN ASK ({:.1}B) │ Wall: {}", ask_25, wall_str));
+            self.vacuum_status = format!("THIN ASK ({:.1}{} in +$25)", ask_25, u);
+            self.vacuum_alert = Some(format!("🔴 [VACUUM] THIN ASK ({:.1}{}) │ Wall: {}", ask_25, u, wall_str));
             self.vacuum_ts = now;
         } else if bid_25 < 1.8 {
             let wall_str = if let Some((p, s)) = bid_wall {
-                format!("-${:.1} ({:.1}B)", best_bid - p, s)
+                format!("-${:.1} ({:.1}{})", best_bid - p, s, u)
             } else {
                 "No Wall".to_string()
             };
-            self.vacuum_status = format!("THIN BID ({:.1}B in -$25)", bid_25);
-            self.vacuum_alert = Some(format!("🔴 [VACUUM] THIN BID ({:.1}B) │ Wall: {}", bid_25, wall_str));
+            self.vacuum_status = format!("THIN BID ({:.1}{} in -$25)", bid_25, u);
+            self.vacuum_alert = Some(format!("🔴 [VACUUM] THIN BID ({:.1}{}) │ Wall: {}", bid_25, u, wall_str));
             self.vacuum_ts = now;
         } else {
-            self.vacuum_status = format!("BALANCED ({:.1}B Bid / {:.1}B Ask in ±$25)", bid_25, ask_25);
+            self.vacuum_status = format!("BALANCED ({:.1}{} Bid / {:.1}{} Ask in ±$25)", bid_25, u, ask_25, u);
         }
 
         // 2. Microstructure Anomalies
@@ -464,7 +469,7 @@ impl MarketState {
 
         if v_5s >= 3.5 * baseline_5s && v_5s >= 5.0 {
             let ratio = v_5s / baseline_5s;
-            self.latest_anomaly = Some(format!("🟠 [ANOMALY] VOL SPIKE: {:.1}x ({:.1} BTC/5s)", ratio, v_5s));
+            self.latest_anomaly = Some(format!("🟠 [ANOMALY] VOL SPIKE: {:.1}x ({:.1} {}/5s)", ratio, v_5s, u));
             self.anomaly_ts = now;
         } else if spread >= 0.40 {
             self.latest_anomaly = Some(format!("🟠 [ANOMALY] SPREAD WIDE: ${:.2} ({:.1}x)", spread, spread / 0.10));
@@ -481,7 +486,7 @@ impl MarketState {
             let delta_5s = buy_5s - sell_5s;
             if delta_5s.abs() >= 8.0 {
                 let sign = if delta_5s > 0.0 { "+" } else { "" };
-                self.latest_anomaly = Some(format!("🟠 [ANOMALY] CVD SURGE: {}{:.1} BTC/5s", sign, delta_5s));
+                self.latest_anomaly = Some(format!("🟠 [ANOMALY] CVD SURGE: {}{:.1} {}/5s", sign, delta_5s, u));
                 self.anomaly_ts = now;
             }
         }
@@ -518,12 +523,93 @@ impl MarketState {
         (bids_vec, asks_vec)
     }
 
+    pub fn asset_unit(&self) -> &'static str {
+        match self.symbol.as_str() {
+            "XAUUSDT" | "XAUTUSDT" | "PAXGUSDT" => "oz",
+            "ETHUSDT" => "ETH",
+            "SOLUSDT" => "SOL",
+            _ => "BTC",
+        }
+    }
+
+    pub fn binance_symbol(&self) -> &'static str {
+        match self.symbol.as_str() {
+            "XAUUSDT" => "PAXGUSDT",
+            "ETHUSDT" => "ETHUSDT",
+            "SOLUSDT" => "SOLUSDT",
+            _ => "BTCUSDT",
+        }
+    }
+
+    pub fn default_macro_params(&self) -> (f64, f64) {
+        match self.symbol.as_str() {
+            "XAUUSDT" => (0.25, 120.0),
+            "ETHUSDT" => (0.50, 150.0),
+            "SOLUSDT" => (0.05, 20.0),
+            _ => (2.50, 1500.0),
+        }
+    }
+
+    pub fn default_ladder_step(&self) -> f64 {
+        match self.symbol.as_str() {
+            "XAUUSDT" => 0.5,
+            "ETHUSDT" => 0.5,
+            "SOLUSDT" => 0.1,
+            _ => 10.0,
+        }
+    }
+
+    pub fn default_whale_thresh(&self) -> f64 {
+        match self.symbol.as_str() {
+            "XAUUSDT" => 5.0,
+            "ETHUSDT" => 15.0,
+            "SOLUSDT" => 150.0,
+            _ => 1.5,
+        }
+    }
+
+    pub fn reset_for_symbol(&mut self, new_sym: &str) {
+        let sym_upper = new_sym.trim().to_uppercase();
+        self.symbol = sym_upper.clone();
+        self.settings.symbol = sym_upper;
+        self.settings.ladder_step = self.default_ladder_step();
+        self.settings.whale_threshold = self.default_whale_thresh();
+        self.settings.save();
+
+        self.last_price = 0.0;
+        self.prev_price = 0.0;
+        self.price_change_24h = 0.0;
+        self.high_24h = 0.0;
+        self.low_24h = 0.0;
+        self.volume_24h = 0.0;
+        self.turnover_24h = 0.0;
+        self.funding_rate = 0.0;
+        self.mark_price = 0.0;
+        self.index_price = 0.0;
+        self.binance_price = 0.0;
+        self.bids.clear();
+        self.asks.clear();
+        self.pending_trades.clear();
+        self.trade_ticks.clear();
+        self.large_trades.clear();
+        self.klines.clear();
+        self.history_slices.clear();
+        self.buy_vol_session = 0.0;
+        self.sell_vol_session = 0.0;
+        self.latest_whale = None;
+        self.latest_anomaly = None;
+        self.latest_spoof = None;
+        self.latest_liq = None;
+        self.ws_updates += 1;
+    }
+
     pub fn record_history_slice(&mut self) {
         if self.last_price == 0.0 {
             return;
         }
         let now = now_secs();
-        let (bids, asks) = self.get_macro_depth_buckets(2.5, 1500.0);
+        let (step, range) = self.default_macro_params();
+        let (bids, asks) = self.get_macro_depth_buckets(step, range);
         let trades = std::mem::take(&mut self.pending_trades);
 
         self.history_slices.push_back(HistorySlice {
@@ -549,7 +635,8 @@ impl MarketState {
         let c_high = self.klines.first().map(|k| k.high).unwrap_or(self.last_price);
         let c_low = self.klines.first().map(|k| k.low).unwrap_or(self.last_price);
 
-        let (bids, asks) = self.get_macro_depth_buckets(2.5, 1500.0);
+        let (step, range) = self.default_macro_params();
+        let (bids, asks) = self.get_macro_depth_buckets(step, range);
 
         for i in 0..count {
             let t = (i as f64) / ((count.max(2) - 1) as f64);

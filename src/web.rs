@@ -130,7 +130,8 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                                 let (score, bias, setup) = st.evaluate_confluence();
                                 let (pressure_ratio, b_vol, a_vol) = st.get_orderbook_pressure(20);
                                 let (asks_ladder, bids_ladder, bid_wall, ask_wall) = st.get_ladder_rows(st.settings.ladder_step, 15);
-                                let (macro_bids, macro_asks) = st.get_macro_depth_buckets(2.5, 1500.0);
+                                let (step, range) = st.default_macro_params();
+                                let (macro_bids, macro_asks) = st.get_macro_depth_buckets(step, range);
                                 let bids_depth: Vec<[f64; 2]> = macro_bids.into_iter().map(|(p, s)| [p, s]).collect();
                                 let asks_depth: Vec<[f64; 2]> = macro_asks.into_iter().map(|(p, s)| [p, s]).collect();
 
@@ -161,6 +162,8 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                                 let recent_whales: Vec<_> = st.large_trades.iter().take(10).cloned().collect();
 
                                 serde_json::json!({
+                                    "symbol": st.symbol,
+                                    "asset_unit": st.asset_unit(),
                                     "last_price": st.last_price,
                                     "prev_price": st.prev_price,
                                     "price_change_24h": st.price_change_24h,
@@ -219,6 +222,35 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                                 json_state.len(),
                                 json_state
+                            );
+                            let _ = socket.write_all(resp.as_bytes()).await;
+                        }
+                        ("GET", path) if path.starts_with("/api/switch_symbol") => {
+                            let mut sym = "BTCUSDT".to_string();
+                            if let Some(query) = raw_path.split('?').nth(1) {
+                                for pair in query.split('&') {
+                                    let mut kv = pair.split('=');
+                                    if kv.next() == Some("symbol") {
+                                        if let Some(v) = kv.next() {
+                                            sym = v.to_uppercase();
+                                        }
+                                    }
+                                }
+                            }
+                            {
+                                let mut st = state_clone.write().await;
+                                st.reset_for_symbol(&sym);
+                            }
+                            crate::ws::seed_from_rest(state_clone.clone()).await;
+
+                            let resp_body = serde_json::json!({
+                                "status": "ok",
+                                "symbol": sym
+                            }).to_string();
+                            let resp = format!(
+                                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                resp_body.len(),
+                                resp_body
                             );
                             let _ = socket.write_all(resp.as_bytes()).await;
                         }

@@ -209,12 +209,15 @@ impl<'a> Widget for TerminalView<'a> {
         block.render(render_area, buf);
 
         if has_footer && render_area.bottom() <= area.bottom() {
-            let step_str = format!(" Step: ${:.0} │ ", st.settings.ladder_step);
+            let sym_str = format!(" Symbol: {} │ ", st.symbol);
+            let step_str = format!(" Step: ${:.1} │ ", st.settings.ladder_step);
             let depth_str = format!(" Depth: {} │ ", st.settings.ladder_rows);
-            let whale_str = format!(" Whale: ≥{:.1}B │ ", st.settings.whale_threshold);
+            let whale_str = format!(" Whale: ≥{:.1}{} │ ", st.settings.whale_threshold, st.asset_unit());
             let footer_spans: &[(&str, Style)] = &[
                 ("[Tab]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 (" Page │ ", Style::default().fg(Color::Rgb(160, 175, 195))),
+                ("[s]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                (&sym_str, Style::default().fg(Color::Rgb(160, 175, 195))),
                 ("[+/-]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 (&step_str, Style::default().fg(Color::Rgb(160, 175, 195))),
                 ("[r]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -653,7 +656,7 @@ fn render_dashboard_wide(st: &MarketState, inner_w: usize, x: u16, row: &mut u16
 
     // 3. Whale Radar (Expands vertically)
     if st.settings.show_whale_radar && right_row < max_y.saturating_sub(2) {
-        buf.set_string(right_x + 2, right_row, &format!("WHALE RADAR (≥ {:.1} BTC)", st.settings.whale_threshold), Style::default().fg(Color::Rgb(255, 215, 0)).add_modifier(Modifier::BOLD));
+        buf.set_string(right_x + 2, right_row, &format!("WHALE RADAR (≥ {:.1} {})", st.settings.whale_threshold, st.asset_unit()), Style::default().fg(Color::Rgb(255, 215, 0)).add_modifier(Modifier::BOLD));
         right_row += 1;
 
         let reserve_rows = if st.settings.show_derivatives { 5 } else { 0 };
@@ -705,7 +708,7 @@ fn render_dashboard_wide(st: &MarketState, inner_w: usize, x: u16, row: &mut u16
 
         let fund_s = format!("{:+.4}%", st.funding_rate);
         let fund_col = if st.funding_rate >= 0.0 { Color::Green } else { Color::Red };
-        let vol_s = format!("{} BTC", format_vol(st.volume_24h));
+        let vol_s = format!("{} {}", format_vol(st.volume_24h), st.asset_unit());
         let m1_spans: &[(&str, Style)] = &[
             ("  • 24h Vol : ", lbl_style),
             (&vol_s, Style::default().fg(Color::White)),
@@ -727,7 +730,7 @@ fn render_dashboard_wide(st: &MarketState, inner_w: usize, x: u16, row: &mut u16
         right_row += 1;
 
         let oi_val_s = format!("{:<10}", format_usd(st.open_interest_val));
-        let oi_qty_s = format!("{} BTC", format_vol(st.open_interest));
+        let oi_qty_s = format!("{} {}", format_vol(st.open_interest), st.asset_unit());
         let m3_spans: &[(&str, Style)] = &[
             ("  • OI Value: ", lbl_style),
             (&oi_val_s, Style::default().fg(Color::Yellow)),
@@ -754,8 +757,9 @@ fn render_hero_wide(st: &MarketState, _inner_w: usize, x: u16, row: &mut u16, bu
     let high_s = format_comma(st.high_24h, 0);
 
     // Row 1: Ticker + Price + 24h Range + Multi-Exchange Arb
+    let sym_s = format!("  {} ", st.symbol);
     let mut row1_spans: Vec<(&str, Style)> = vec![
-        ("  BTCUSDT ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        (&sym_s, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         (&px_s, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
         (" ", Style::default()),
         (tick_icon, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
@@ -840,9 +844,10 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
     let chg_sign = if st.price_change_24h >= 0.0 { "+" } else { "" };
     let chg_s = format!("{}{:.2}%", chg_sign, st.price_change_24h);
     let px_s = format!("${}", format_comma(st.last_price, 2));
+    let sym_s = format!("  {}  ", st.symbol);
 
     let hero_spans: &[(&str, Style)] = &[
-        ("  BTCUSDT  ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        (&sym_s, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         (&px_s, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
         (" ", Style::default()),
         (tick_icon, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
@@ -990,7 +995,7 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
     if st.settings.show_whale_radar && *row < max_y.saturating_sub(2) {
         draw_horizontal_divider(x, *row, inner_w, border_col, buf);
         *row += 1;
-        buf.set_string(x + 2, *row, &format!("WHALE & LARGE TRADE RADAR (≥ {:.1} BTC)", st.settings.whale_threshold), Style::default().fg(Color::Rgb(255, 215, 0)).add_modifier(Modifier::BOLD));
+        buf.set_string(x + 2, *row, &format!("WHALE & LARGE TRADE RADAR (≥ {:.1} {})", st.settings.whale_threshold, st.asset_unit()), Style::default().fg(Color::Rgb(255, 215, 0)).add_modifier(Modifier::BOLD));
         *row += 1;
 
         let max_w = if max_y.saturating_sub(*row) > 10 { 3 } else { 2 };
@@ -1000,7 +1005,7 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
                 let t_str = dt.format("%H:%M:%S").to_string();
                 let dot = if tr.side == "Buy" { "🟢" } else { "🔴" };
                 let side_col = if tr.side == "Buy" { Color::Green } else { Color::Red };
-                let vol_s = format!("{:>6.2} BTC", tr.vol);
+                let vol_s = format!("{:>6.2} {}", tr.vol, st.asset_unit());
                 let usd_s = format!("({})", format_usd(tr.usd));
                 let px_s = format!("${}", format_comma(tr.price, 1));
                 let tr_spans: &[(&str, Style)] = &[
@@ -1021,7 +1026,7 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
                 *row += 1;
             }
         } else {
-            buf.set_string(x + 2, *row, &format!("Listening for whale orders (≥ {:.1} BTC)... [Press 'w' to adjust]", st.settings.whale_threshold), lbl_style);
+            buf.set_string(x + 2, *row, &format!("Listening for whale orders (≥ {:.1} {})... [Press 'w' to adjust]", st.settings.whale_threshold, st.asset_unit()), lbl_style);
             *row += 1;
         }
     }
@@ -1126,9 +1131,9 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
         // Nearest Liquidity Walls
         if *row < max_y.saturating_sub(2) {
             let (_, _, bid_wall, ask_wall) = st.get_ladder_rows(st.settings.ladder_step, 5);
-            let bw_raw = format!("${} ({:.1} BTC)", format_comma(bid_wall.0, 0), bid_wall.1);
+            let bw_raw = format!("${} ({:.1} {})", format_comma(bid_wall.0, 0), bid_wall.1, st.asset_unit());
             let bw_s = format!("{:<19}", bw_raw);
-            let aw_s = format!("${} ({:.1} BTC)", format_comma(ask_wall.0, 0), ask_wall.1);
+            let aw_s = format!("${} ({:.1} {})", format_comma(ask_wall.0, 0), ask_wall.1, st.asset_unit());
             let walls_spans: &[(&str, Style)] = &[
                 ("  • Bid Wall: ", lbl_style),
                 (&bw_s, Style::default().fg(Color::LightGreen)),
@@ -1149,7 +1154,7 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
 
         let fund_s = format!("{:+.4}%", st.funding_rate);
         let fund_col = if st.funding_rate >= 0.0 { Color::Green } else { Color::Red };
-        let vol_s = format!("{} BTC", format_vol(st.volume_24h));
+        let vol_s = format!("{} {}", format_vol(st.volume_24h), st.asset_unit());
         let m1_spans: &[(&str, Style)] = &[
             ("  • 24h Vol : ", lbl_style),
             (&vol_s, Style::default().fg(Color::White)),
@@ -1171,7 +1176,7 @@ fn render_dashboard_single_column(st: &MarketState, inner_w: usize, x: u16, row:
         *row += 1;
 
         let oi_val_s = format!("{:<14}", format_usd(st.open_interest_val));
-        let oi_qty_s = format!("{} BTC", format_vol(st.open_interest));
+        let oi_qty_s = format!("{} {}", format_vol(st.open_interest), st.asset_unit());
         let m3_spans: &[(&str, Style)] = &[
             ("  • OI Value: ", lbl_style),
             (&oi_val_s, Style::default().fg(Color::Yellow)),
@@ -1241,8 +1246,9 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     let step_s = format!("${:.0} ", st.settings.ladder_step);
     let depth_s = format!("{} ", st.settings.ladder_rows);
 
+    let sym_s = format!("  {} ", st.symbol);
     let hero_spans: &[(&str, Style)] = &[
-        ("  BTCUSDT ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        (&sym_s, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         (&px_s, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
         ("│ Spr: ", lbl_style),
         (&spr_s, Style::default().fg(Color::Yellow)),
@@ -1260,7 +1266,7 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     let (b_bar, a_bar) = render_pressure_bar(bid_ratio, 12);
     let b_pct_s = format!("{:.0}% Bid ", bid_ratio);
     let a_pct_s = format!("{:.0}% Ask ", 100.0 - bid_ratio);
-    let tot_s = format!("({:.0} BTC)", b_vol + a_vol);
+    let tot_s = format!("({:.0} {})", b_vol + a_vol, st.asset_unit());
     let depth_spans: &[(&str, Style)] = &[
         ("  Depth Flow: [", lbl_style),
         (&b_bar, Style::default().fg(Color::Green)),
@@ -1284,7 +1290,7 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     // Dynamic Heatmap Bar width: stretches with terminal width!
     let bar_max_w = (inner_w.saturating_sub(44)).clamp(14, 55);
     let title_space = " ".repeat(bar_max_w.saturating_sub(13));
-    let col_headers = format!("Price        Size(BTC)   Depth Heatmap{}Cumul(BTC)", title_space);
+    let col_headers = format!("Price        Size({unit})   Depth Heatmap{title_space}Cumul({unit})", unit = st.asset_unit(), title_space = title_space);
     buf.set_string(x + 2, *row, &col_headers, lbl_style);
     *row += 1;
 
@@ -1314,7 +1320,7 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
         };
 
         let price_str = format!("  {:<10} ", format_comma(r.price, 1));
-        let sz_str = format!("{:>7.2} BTC ", r.size);
+        let sz_str = format!("{:>7.2} {:<3} ", r.size, st.asset_unit());
         let cum_s = format!("{:>9.2} ", r.cumulative);
         let p_col = Color::LightRed;
 
@@ -1360,7 +1366,7 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
         };
 
         let price_str = format!("  {:<10} ", format_comma(r.price, 1));
-        let sz_str = format!("{:>7.2} BTC ", r.size);
+        let sz_str = format!("{:>7.2} {:<3} ", r.size, st.asset_unit());
         let cum_s = format!("{:>9.2} ", r.cumulative);
         let p_col = Color::LightGreen;
 
@@ -1387,9 +1393,9 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     *row += 1;
 
     let bw_s = format!("${} ", format_comma(bid_wall.0, 0));
-    let bw_btc = format!("({:.1} BTC) ", bid_wall.1);
+    let bw_btc = format!("({:.1} {}) ", bid_wall.1, st.asset_unit());
     let aw_s = format!("${} ", format_comma(ask_wall.0, 0));
-    let aw_btc = format!("({:.1} BTC)", ask_wall.1);
+    let aw_btc = format!("({:.1} {})", ask_wall.1, st.asset_unit());
     let walls_spans: &[(&str, Style)] = &[
         ("  ▲ Wall: ", lbl_style),
         (&bw_s, Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD)),
@@ -1412,7 +1418,7 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     let delta_sign = if delta >= 0.0 { "+" } else { "" };
     let b_s = format!("{:.1}", st.buy_vol_session);
     let s_s = format!("{:.1} ", st.sell_vol_session);
-    let d_s = format!("{}{:.1} BTC", delta_sign, delta);
+    let d_s = format!("{}{:.1} {}", delta_sign, delta, st.asset_unit());
 
     let cvd_spans: &[(&str, Style)] = &[
         ("  Session CVD: [", lbl_style),
@@ -1472,12 +1478,13 @@ fn render_heatmap_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, 
     let p_col = if st.last_price >= st.prev_price { Color::LightGreen } else { Color::LightRed };
     let px_s = format!("${} ", format_comma(st.last_price, 2));
     let spr_s = format!("${:.2} ", spread);
-    let delta_s = format!("{:+.1} BTC ", delta);
+    let delta_s = format!("{:+.1} {} ", delta, st.asset_unit());
     let step_s = format!("${:.0} ", st.settings.ladder_step);
     let depth_s = format!("{} ", st.settings.ladder_rows);
+    let sym_s = format!("  {} ", st.symbol);
 
     let hero_spans: &[(&str, Style)] = &[
-        ("  BTCUSDT ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        (&sym_s, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         (&px_s, Style::default().fg(p_col).add_modifier(Modifier::BOLD)),
         ("│ Spr: ", lbl_style),
         (&spr_s, Style::default().fg(Color::Yellow)),
@@ -1651,9 +1658,9 @@ fn render_heatmap_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, 
 
     let (_, _, bid_wall, ask_wall) = st.get_ladder_rows(st.settings.ladder_step, 10);
     let bw_s = format!("${} ", format_comma(bid_wall.0, 0));
-    let bw_btc = format!("({:.1} BTC) ", bid_wall.1);
+    let bw_btc = format!("({:.1} {}) ", bid_wall.1, st.asset_unit());
     let aw_s = format!("${} ", format_comma(ask_wall.0, 0));
-    let aw_btc = format!("({:.1} BTC)", ask_wall.1);
+    let aw_btc = format!("({:.1} {})", ask_wall.1, st.asset_unit());
     let walls_spans: &[(&str, Style)] = &[
         ("  ▲ Wall: ", lbl_style),
         (&bw_s, Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD)),
