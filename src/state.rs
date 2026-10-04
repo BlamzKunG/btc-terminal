@@ -120,7 +120,7 @@ impl MarketState {
             sell_vol_session: 0.0,
 
             klines: Vec::new(),
-            history_slices: VecDeque::with_capacity(70),
+            history_slices: VecDeque::with_capacity(200),
             last_slice_ts: 0.0,
 
             latest_whale: None,
@@ -457,8 +457,8 @@ impl MarketState {
             return;
         }
         let now = now_secs();
-        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(30).map(|(k, s)| (from_key(*k), *s)).collect();
-        let asks: Vec<(f64, f64)> = self.asks.iter().take(30).map(|(k, s)| (from_key(*k), *s)).collect();
+        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
+        let asks: Vec<(f64, f64)> = self.asks.iter().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
         let trades = std::mem::take(&mut self.pending_trades);
 
         self.history_slices.push_back(HistorySlice {
@@ -469,7 +469,7 @@ impl MarketState {
             trades,
         });
 
-        if self.history_slices.len() > 60 {
+        if self.history_slices.len() > 180 {
             self.history_slices.pop_front();
         }
         self.last_slice_ts = now;
@@ -484,17 +484,17 @@ impl MarketState {
         let c_high = self.klines.first().map(|k| k.high).unwrap_or(self.last_price);
         let c_low = self.klines.first().map(|k| k.low).unwrap_or(self.last_price);
 
-        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(30).map(|(k, s)| (from_key(*k), *s)).collect();
-        let asks: Vec<(f64, f64)> = self.asks.iter().take(30).map(|(k, s)| (from_key(*k), *s)).collect();
+        let bids: Vec<(f64, f64)> = self.bids.iter().rev().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
+        let asks: Vec<(f64, f64)> = self.asks.iter().take(50).map(|(k, s)| (from_key(*k), *s)).collect();
 
         for i in 0..count {
             let t = (i as f64) / ((count.max(2) - 1) as f64);
             let p = (c_open + (self.last_price - c_open) * t).clamp(c_low, c_high);
             let ts = now - ((count - i) as f64);
             let mut trades = Vec::new();
-            if i == count / 4 || i == count / 2 || i == (3 * count) / 4 {
+            if i % 2 == 0 {
                 let side = if p >= c_open { "Buy" } else { "Sell" };
-                trades.push((p, 0.4, side.to_string()));
+                trades.push((p, 0.35 + ((i % 5) as f64) * 0.45, side.to_string()));
             }
             self.history_slices.push_back(HistorySlice {
                 ts,

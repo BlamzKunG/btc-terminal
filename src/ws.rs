@@ -61,7 +61,7 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
             if let Some(res) = val.get("result") {
                 let mut st = state.write().await;
                 st.update_orderbook("snapshot", res);
-                st.seed_initial_slices(24);
+                st.seed_initial_slices(60);
                 st.evaluate_anomalies_and_vacuum();
             }
         }

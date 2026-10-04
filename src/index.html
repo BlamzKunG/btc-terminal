@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC-Terminal Web Dashboard</title>
-    <!-- TradingView Lightweight Charts Library -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BTC-Terminal Bookmap Heatmap & Web Dashboard</title>
+    <!-- TradingView Lightweight Charts Library (for Candlestick Mode) -->
     <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
-            --bg-base: #0b0e14;
-            --bg-card: #151922;
-            --bg-panel: #1a202c;
-            --border: #262f3d;
+            --bg-base: #0a0d14;
+            --bg-card: #121620;
+            --bg-panel: #171d2a;
+            --border: #222c3d;
             --border-highlight: #3b475a;
             --text-main: #f0f3f6;
             --text-sub: #8c9ba5;
@@ -22,6 +22,9 @@
             --gold: #fbbf24;
             --blue: #3b82f6;
             --purple: #a855f7;
+            --bm-yellow: #fffa65;
+            --bm-amber: #ffd32a;
+            --bm-blue: #0f3460;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -32,25 +35,27 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+            user-select: none;
         }
+
         /* Top Navigation Header */
         header {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border);
-            padding: 12px 24px;
+            padding: 10px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 16px;
+            gap: 12px;
         }
         .brand-area {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
         }
         .logo {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 900;
             letter-spacing: 1px;
             background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
@@ -65,7 +70,7 @@
             color: var(--cyan);
             border: 1px solid rgba(0, 242, 254, 0.3);
             font-size: 11px;
-            padding: 3px 8px;
+            padding: 2px 8px;
             border-radius: 12px;
             font-weight: 700;
         }
@@ -77,7 +82,7 @@
             color: var(--green);
             background: rgba(38, 166, 154, 0.12);
             border: 1px solid rgba(38, 166, 154, 0.25);
-            padding: 4px 10px;
+            padding: 3px 8px;
             border-radius: 20px;
             font-weight: 600;
         }
@@ -112,48 +117,48 @@
 
         /* Hero Ticker Section */
         .hero-bar {
-            background: #11151e;
+            background: #0f131c;
             border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
+            padding: 12px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 16px;
         }
         .price-hero {
             display: flex;
             align-items: baseline;
-            gap: 16px;
+            gap: 14px;
         }
         .pair-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: var(--text-sub);
         }
         .live-price {
-            font-size: 34px;
+            font-size: 32px;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.5px;
             transition: color 0.3s ease;
         }
         .price-chg {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 6px;
         }
         .stat-grid {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 20px;
             flex-wrap: wrap;
         }
         .stat-box {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
         }
         .stat-lbl {
             font-size: 11px;
@@ -163,7 +168,7 @@
             font-weight: 600;
         }
         .stat-val {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
         }
@@ -171,10 +176,10 @@
         /* Main Content Layout */
         .main-container {
             flex: 1;
-            padding: 20px 24px;
+            padding: 16px 20px;
             display: grid;
             grid-template-columns: 1fr 340px;
-            gap: 20px;
+            gap: 16px;
         }
         @media (max-width: 1100px) {
             .main-container {
@@ -182,87 +187,141 @@
             }
         }
 
-        /* Chart Card */
+        /* Bookmap / Chart Container Card */
         .chart-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 10px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            min-height: 600px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            min-height: 620px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-        .chart-header {
-            padding: 10px 18px;
+
+        /* Bookmap Window Tab Header */
+        .bookmap-window-tab-bar {
+            background: #141822;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: #141822;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .chart-title {
-            font-size: 15px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
+            padding: 0 12px;
+            height: 38px;
             gap: 10px;
         }
-
-        /* Interactive Controls Toolbar */
-        .chart-toolbar {
+        .tabs-left {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            gap: 4px;
+        }
+        .tab-btn {
+            background: transparent;
+            color: var(--text-sub);
+            border: none;
+            border-top: 2px solid transparent;
+            border-bottom: 2px solid transparent;
+            height: 100%;
+            padding: 0 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
             display: flex;
             align-items: center;
             gap: 8px;
+            transition: all 0.15s ease;
+        }
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .tab-btn.active {
+            color: var(--cyan);
+            background: #0d111a;
+            border-top: 2px solid var(--cyan);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+        }
+        .tab-close {
+            font-size: 14px;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+        .tab-close:hover { opacity: 1; color: var(--red); }
+
+        /* Chart Controls Toolbar */
+        .chart-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             flex-wrap: wrap;
+            padding: 8px 12px;
+            background: #0e121a;
+            border-bottom: 1px solid var(--border);
         }
         .tool-btn {
-            background: #1e2635;
+            background: #19202c;
             color: var(--text-sub);
             border: 1px solid var(--border);
-            padding: 5px 12px;
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: 5px;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             display: flex;
             align-items: center;
             gap: 5px;
         }
         .tool-btn:hover {
-            background: #283347;
+            background: #253042;
             color: #fff;
             border-color: var(--border-highlight);
         }
-        .tool-btn.active {
-            background: rgba(0, 242, 254, 0.15);
-            color: var(--cyan);
-            border-color: rgba(0, 242, 254, 0.4);
-            box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+        .tool-btn.active-heat {
+            background: rgba(251, 191, 36, 0.18);
+            color: var(--gold);
+            border-color: rgba(251, 191, 36, 0.45);
         }
         .tool-btn.active-vol {
-            background: rgba(38, 166, 154, 0.15);
+            background: rgba(38, 166, 154, 0.18);
             color: var(--green);
-            border-color: rgba(38, 166, 154, 0.4);
+            border-color: rgba(38, 166, 154, 0.45);
         }
-        .tool-btn.active-heat {
-            background: rgba(251, 191, 36, 0.15);
-            color: var(--gold);
-            border-color: rgba(251, 191, 36, 0.4);
-            box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+        .tool-btn.active-bubble {
+            background: rgba(0, 242, 254, 0.18);
+            color: var(--cyan);
+            border-color: rgba(0, 242, 254, 0.45);
         }
 
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-left: auto;
+            background: #131822;
+            padding: 3px 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+        }
+        .slider-group input[type="range"] {
+            width: 70px;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+
+        /* Legend Bar */
         .legend-bar {
-            padding: 6px 18px;
-            background: #11151e;
+            padding: 5px 14px;
+            background: #0b0f16;
             border-bottom: 1px solid var(--border);
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-sub);
             display: flex;
-            gap: 14px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -271,65 +330,89 @@
             align-items: center;
             gap: 5px;
         }
-        .legend-dot {
-            width: 8px;
-            height: 8px;
+        .legend-swatch {
+            width: 12px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        .legend-circle {
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
 
-        /* Chart Canvas Container & Overlay */
+        /* Chart Canvas Relative Box */
         .chart-relative-box {
             flex: 1;
             width: 100%;
-            height: 520px;
+            height: 540px;
             position: relative;
+            background: #0a0d14;
+            overflow: hidden;
+        }
+
+        /* 1. Bookmap 2D Time-Series Heatmap Canvas */
+        #bookmap-canvas {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* 2. Candlestick Box (Alternative Mode) */
+        #candlestick-wrapper {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 5;
+            display: none;
         }
         #chart-container {
             width: 100%;
             height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
         }
-        #heatmap-canvas {
+
+        /* Bookmap Crosshair Tooltip */
+        #bookmap-tooltip {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
+            background: rgba(18, 22, 32, 0.95);
+            border: 1px solid var(--border-highlight);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #fff;
             pointer-events: none;
-        }
-        #fallback-canvas {
             display: none;
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
+            z-index: 50;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+            line-height: 1.5;
         }
 
         /* Sidebar Panels */
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
         }
         .panel {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 10px;
+            padding: 14px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
         .panel-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -339,22 +422,22 @@
         /* Orderbook Pressure Bar */
         .pressure-bar-container {
             background: rgba(239, 83, 80, 0.2);
-            height: 14px;
-            border-radius: 7px;
+            height: 12px;
+            border-radius: 6px;
             overflow: hidden;
             display: flex;
-            margin: 10px 0;
+            margin: 8px 0;
             border: 1px solid var(--border);
         }
         .pressure-bid-fill {
             background: linear-gradient(90deg, #26a69a, #4db6ac);
             height: 100%;
-            transition: width 0.4s ease;
+            transition: width 0.3s ease;
         }
         .pressure-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
         }
 
@@ -362,8 +445,8 @@
         .info-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
-            font-size: 13px;
+            padding: 5px 0;
+            font-size: 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         }
         .info-row:last-child { border-bottom: none; }
@@ -372,17 +455,17 @@
 
         /* Trade Tape */
         .trade-tape {
-            max-height: 200px;
+            max-height: 180px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
         }
         .trade-row {
             display: grid;
-            grid-template-columns: 60px 50px 1fr 1fr;
-            font-size: 12px;
-            padding: 4px 8px;
+            grid-template-columns: 55px 45px 1fr 1fr;
+            font-size: 11px;
+            padding: 3px 6px;
             border-radius: 4px;
             font-variant-numeric: tabular-nums;
             align-items: center;
@@ -393,25 +476,25 @@
 
         /* Confluence Score Box */
         .confluence-box {
-            background: #11151e;
+            background: #0f131c;
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
             text-align: center;
         }
         .confluence-score {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 900;
-            margin: 4px 0;
+            margin: 2px 0;
         }
         .confluence-bias {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.5px;
         }
 
-        /* Bottom Row Cards */
+        /* Bottom Grid: Recent Trades & Whale Radar */
         .bottom-grid {
             grid-column: 1 / -1;
             display: grid;
@@ -419,7 +502,7 @@
             gap: 16px;
         }
 
-        /* Colors & Utilities */
+        /* Utilities */
         .text-green { color: var(--green); }
         .text-red { color: var(--red); }
         .text-yellow { color: var(--yellow); }
@@ -428,8 +511,7 @@
         .bg-green { background: rgba(38, 166, 154, 0.2); color: var(--green); }
         .bg-red { background: rgba(239, 83, 80, 0.2); color: var(--red); }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: var(--bg-card); }
         ::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 3px; }
     </style>
@@ -440,7 +522,7 @@
     <header>
         <div class="brand-area">
             <div class="logo">⚡ BTC-TERMINAL</div>
-            <span class="tag-pill">WEB DASHBOARD</span>
+            <span class="tag-pill">BOOKMAP HEATMAP ENGINE</span>
             <div class="status-badge">
                 <div class="status-dot"></div>
                 <span id="conn-status">LIVE BYBIT & BINANCE STREAM</span>
@@ -454,7 +536,7 @@
     <!-- Hero Ticker Stats -->
     <div class="hero-bar">
         <div class="price-hero">
-            <span class="pair-title">BTC/USDT Linear</span>
+            <span class="pair-title">BTCUSDT Linear</span>
             <span class="live-price" id="hero-price">$--,---.--</span>
             <span class="price-chg" id="hero-chg">+0.00%</span>
         </div>
@@ -484,44 +566,71 @@
 
     <!-- Main Content Area -->
     <div class="main-container">
-        <!-- Candlestick Chart Card -->
+        <!-- Main Chart Card -->
         <div class="chart-card">
-            <div class="chart-header">
-                <div class="chart-title">
-                    <span>📈 Candlestick & Liquidity Depth Heatmap</span>
-                    <span class="tag-pill" style="font-size:10px;">REALTIME 1-MIN</span>
-                </div>
-                <!-- Interactive Chart Toolbar (Volume & Heatmap Toggles) -->
-                <div class="chart-toolbar">
-                    <button id="btn-toggle-heat" class="tool-btn active-heat" onclick="toggleHeatmap()">
-                        🔥 Heatmap: ON
+            <!-- Bookmap Tab Bar (like ESH9@S5 in Bookmap) -->
+            <div class="bookmap-window-tab-bar">
+                <div class="tabs-left">
+                    <button id="tab-bookmap" class="tab-btn active" onclick="switchMode('bookmap')">
+                        <span>🔥 BTCUSDT@S1 (Bookmap)</span>
+                        <span class="tab-close">×</span>
                     </button>
-                    <button id="btn-toggle-vol" class="tool-btn active-vol" onclick="toggleVolume()">
-                        📊 Volume: ON
-                    </button>
-                    <button id="btn-toggle-ema" class="tool-btn active" onclick="toggleEma()">
-                        📈 EMA 9/21: ON
+                    <button id="tab-candles" class="tab-btn" onclick="switchMode('candles')">
+                        <span>📊 Candlestick 1-Min</span>
+                        <span class="tab-close">×</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Legend Bar -->
+            <!-- Interactive Toolbar Controls -->
+            <div class="chart-toolbar">
+                <button id="btn-center" class="tool-btn" onclick="centerBookmapPrice()">
+                    🎯 Center Price
+                </button>
+                <button id="btn-zoom-in" class="tool-btn" onclick="zoomBookmap(-1)">
+                    ➕ Zoom In
+                </button>
+                <button id="btn-zoom-out" class="tool-btn" onclick="zoomBookmap(1)">
+                    ➖ Zoom Out
+                </button>
+                <button id="btn-toggle-bubbles" class="tool-btn active-bubble" onclick="toggleBubbles()">
+                    ⚪ Bubbles: ON
+                </button>
+                <button id="btn-toggle-vol" class="tool-btn active-vol" onclick="toggleVolume()">
+                    📊 Volume: ON
+                </button>
+
+                <div class="slider-group">
+                    <span>Heatmap Contrast:</span>
+                    <input type="range" id="contrast-slider" min="1" max="15" value="6" oninput="updateContrast(this.value)">
+                </div>
+            </div>
+
+            <!-- Color Palette Legend Bar (Bookmap signature palette) -->
             <div class="legend-bar">
-                <div class="legend-item"><span class="legend-dot" style="background:#26a69a;"></span> Bullish</div>
-                <div class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span> Bearish</div>
-                <div class="legend-item"><span class="legend-dot" style="background:#00f2fe;"></span> EMA 9</div>
-                <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span> EMA 21</div>
-                <div class="legend-item"><span class="legend-dot" style="background:rgba(0, 242, 254, 0.7);"></span> Bid Depth</div>
-                <div class="legend-item"><span class="legend-dot" style="background:rgba(251, 191, 36, 0.7);"></span> Ask Depth</div>
-                <div class="legend-item" id="ohlc-info" style="color:#fff; font-weight:600; margin-left:auto;"></div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#fff; box-shadow:0 0 4px #fff;"></span> Ultra Wall (>15B)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#fffa65;"></span> High Wall (>8B)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#ffd32a;"></span> Medium-High (>4B)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#00b4d8;"></span> Medium (>1.5B)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#1a508b;"></span> Low (>0.5B)</div>
+                <div class="legend-item"><span class="legend-swatch" style="background:#0c1017; border:1px solid #222c3d;"></span> Empty</div>
+                <div class="legend-item"><span class="legend-circle" style="background:#26a69a;"></span> Buy Bubble</div>
+                <div class="legend-item"><span class="legend-circle" style="background:#ef5350;"></span> Sell Bubble</div>
+                <div class="legend-item" id="chart-info-tag" style="margin-left:auto; font-weight:700; color:#fff;"></div>
             </div>
 
             <!-- Chart Relative Container -->
-            <div class="chart-relative-box">
-                <div id="chart-container"></div>
-                <!-- Canvas Heatmap Overlay Layer -->
-                <canvas id="heatmap-canvas"></canvas>
-                <canvas id="fallback-canvas"></canvas>
+            <div class="chart-relative-box" id="chart-relative-box">
+                <!-- 1. Dedicated Bookmap HTML5 Canvas -->
+                <canvas id="bookmap-canvas"></canvas>
+
+                <!-- 2. Candlestick Fallback Wrapper -->
+                <div id="candlestick-wrapper">
+                    <div id="chart-container"></div>
+                </div>
+
+                <!-- Hover Tooltip -->
+                <div id="bookmap-tooltip"></div>
             </div>
         </div>
 
@@ -629,22 +738,32 @@
         </div>
     </div>
 
-    <!-- Script: Real-Time Data Streaming & Candlestick Chart Engine -->
+    <!-- BOOKMAP ENGINE JAVASCRIPT -->
     <script>
+        // Global State & Settings
+        let currentMode = 'bookmap'; // 'bookmap' or 'candles'
+        let showVolume = localStorage.getItem('btc_show_volume') !== 'false';
+        let showBubbles = localStorage.getItem('btc_show_bubbles') !== 'false';
+        let contrastLevel = parseFloat(localStorage.getItem('btc_contrast') || '6.0');
+
+        let rawSlices = [];
+        let latestOrderbook = null;
+        let lastPrice = 0;
+        let prevPrice = 0;
+
+        // Bookmap Viewport Scale & Offset
+        let priceSpan = 60.0; // vertical dollar window (e.g. ±$30)
+        let priceCenter = 0.0;
+        let autoFollowPrice = true;
+        let isDragging = false;
+        let dragStartY = 0;
+        let dragStartCenter = 0;
+
+        // TradingView Lightweight Charts (Candles mode)
         let chart = null;
         let candleSeries = null;
         let volumeSeries = null;
-        let ema9Series = null;
-        let ema21Series = null;
-        let isUsingFallbackCanvas = false;
         let klinesData = [];
-        let latestOrderbook = null;
-        let lastPrice = 0;
-
-        // User Settings (Stored in LocalStorage)
-        let showVolume = localStorage.getItem('btc_show_volume') !== 'false'; // default true
-        let showHeatmap = localStorage.getItem('btc_show_heatmap') !== 'false'; // default true
-        let showEma = localStorage.getItem('btc_show_ema') !== 'false'; // default true
 
         function formatComma(num, decimals) {
             if (decimals === undefined) decimals = 2;
@@ -652,7 +771,30 @@
             return Number(num).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
         }
 
-        // Toggle Volume ON/OFF
+        // Mode Switcher (Bookmap vs Candlestick)
+        function switchMode(mode) {
+            currentMode = mode;
+            const tabBm = document.getElementById('tab-bookmap');
+            const tabCd = document.getElementById('tab-candles');
+            const bmCanvas = document.getElementById('bookmap-canvas');
+            const cdWrapper = document.getElementById('candlestick-wrapper');
+
+            if (mode === 'bookmap') {
+                tabBm.className = 'tab-btn active';
+                tabCd.className = 'tab-btn';
+                bmCanvas.style.display = 'block';
+                cdWrapper.style.display = 'none';
+                requestAnimationFrame(drawBookmap);
+            } else {
+                tabBm.className = 'tab-btn';
+                tabCd.className = 'tab-btn active';
+                bmCanvas.style.display = 'none';
+                cdWrapper.style.display = 'block';
+                if (!chart) initCandleChart();
+                fetchKlines();
+            }
+        }
+
         function toggleVolume() {
             showVolume = !showVolume;
             localStorage.setItem('btc_show_volume', showVolume ? 'true' : 'false');
@@ -661,452 +803,597 @@
 
         function applyVolumeSetting() {
             const btn = document.getElementById('btn-toggle-vol');
-            if (showVolume) {
-                btn.className = 'tool-btn active-vol';
-                btn.innerHTML = '📊 Volume: ON';
-                if (volumeSeries) {
-                    volumeSeries.applyOptions({ visible: true });
-                }
-                if (candleSeries) {
-                    candleSeries.applyOptions({
-                        scaleMargins: { top: 0.08, bottom: 0.22 }
-                    });
-                }
+            btn.className = showVolume ? 'tool-btn active-vol' : 'tool-btn';
+            btn.innerHTML = showVolume ? '📊 Volume: ON' : '📊 Volume: OFF';
+            if (volumeSeries) {
+                volumeSeries.applyOptions({ visible: showVolume });
+            }
+            if (candleSeries) {
+                candleSeries.applyOptions({
+                    scaleMargins: { top: 0.05, bottom: showVolume ? 0.22 : 0.05 }
+                });
+            }
+            requestAnimationFrame(drawBookmap);
+        }
+
+        function toggleBubbles() {
+            showBubbles = !showBubbles;
+            localStorage.setItem('btc_show_bubbles', showBubbles ? 'true' : 'false');
+            const btn = document.getElementById('btn-toggle-bubbles');
+            btn.className = showBubbles ? 'tool-btn active-bubble' : 'tool-btn';
+            btn.innerHTML = showBubbles ? '⚪ Bubbles: ON' : '⚪ Bubbles: OFF';
+            requestAnimationFrame(drawBookmap);
+        }
+
+        function updateContrast(val) {
+            contrastLevel = parseFloat(val);
+            localStorage.setItem('btc_contrast', val);
+            requestAnimationFrame(drawBookmap);
+        }
+
+        function centerBookmapPrice() {
+            if (lastPrice > 0) {
+                priceCenter = lastPrice;
+                autoFollowPrice = true;
+                requestAnimationFrame(drawBookmap);
+            }
+        }
+
+        function zoomBookmap(dir) {
+            // dir < 0 = zoom in (smaller span), dir > 0 = zoom out (larger span)
+            if (dir < 0) {
+                priceSpan = Math.max(15.0, priceSpan * 0.8);
             } else {
-                btn.className = 'tool-btn';
-                btn.innerHTML = '📊 Volume: OFF';
-                if (volumeSeries) {
-                    volumeSeries.applyOptions({ visible: false });
-                }
-                if (candleSeries) {
-                    // Full height for candlesticks without volume obstruction!
-                    candleSeries.applyOptions({
-                        scaleMargins: { top: 0.04, bottom: 0.04 }
-                    });
-                }
+                priceSpan = Math.min(300.0, priceSpan * 1.25);
             }
-            if (isUsingFallbackCanvas) {
-                drawCanvasChart();
-            }
+            requestAnimationFrame(drawBookmap);
         }
 
-        // Toggle Heatmap ON/OFF
-        function toggleHeatmap() {
-            showHeatmap = !showHeatmap;
-            localStorage.setItem('btc_show_heatmap', showHeatmap ? 'true' : 'false');
-            applyHeatmapSetting();
-        }
+        // =====================================================================
+        // BOOKMAP 2D TIME-SERIES CANVAS RENDERER
+        // Exactly matches the Bookmap user screenshot layout & colors!
+        // =====================================================================
+        const bookmapCanvas = document.getElementById('bookmap-canvas');
+        const bmCtx = bookmapCanvas.getContext('2d');
 
-        function applyHeatmapSetting() {
-            const btn = document.getElementById('btn-toggle-heat');
-            const canvas = document.getElementById('heatmap-canvas');
-            if (showHeatmap) {
-                btn.className = 'tool-btn active-heat';
-                btn.innerHTML = '🔥 Heatmap: ON';
-                canvas.style.display = 'block';
-                renderHeatmapOverlay();
+        function resizeBookmapCanvas() {
+            const box = document.getElementById('chart-relative-box');
+            const dpr = window.devicePixelRatio || 1;
+            const w = box.clientWidth;
+            const h = box.clientHeight;
+            if (bookmapCanvas.width !== w * dpr || bookmapCanvas.height !== h * dpr) {
+                bookmapCanvas.width = w * dpr;
+                bookmapCanvas.height = h * dpr;
+            }
+            requestAnimationFrame(drawBookmap);
+        }
+        window.addEventListener('resize', resizeBookmapCanvas);
+
+        // Pan & Drag events on Bookmap
+        bookmapCanvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            autoFollowPrice = false;
+            dragStartY = e.clientY;
+            dragStartCenter = priceCenter;
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        bookmapCanvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const box = document.getElementById('chart-relative-box');
+                const deltaY = e.clientY - dragStartY;
+                const pricePerPixel = priceSpan / box.clientHeight;
+                priceCenter = dragStartCenter + (deltaY * pricePerPixel);
+                requestAnimationFrame(drawBookmap);
             } else {
-                btn.className = 'tool-btn';
-                btn.innerHTML = '🔥 Heatmap: OFF';
-                canvas.style.display = 'none';
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                handleBookmapHover(e);
             }
-            if (isUsingFallbackCanvas) {
-                drawCanvasChart();
+        });
+        bookmapCanvas.addEventListener('mouseleave', () => {
+            document.getElementById('bookmap-tooltip').style.display = 'none';
+        });
+        bookmapCanvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            autoFollowPrice = false;
+            zoomBookmap(e.deltaY > 0 ? 1 : -1);
+        }, { passive: false });
+
+        // Touch support for mobile / tablets
+        let touchStartY = 0;
+        bookmapCanvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                autoFollowPrice = false;
+                touchStartY = e.touches[0].clientY;
+                dragStartCenter = priceCenter;
             }
-        }
+        }, { passive: true });
+        bookmapCanvas.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const box = document.getElementById('chart-relative-box');
+                const deltaY = e.touches[0].clientY - touchStartY;
+                const pricePerPixel = priceSpan / box.clientHeight;
+                priceCenter = dragStartCenter + (deltaY * pricePerPixel);
+                requestAnimationFrame(drawBookmap);
+            }
+        }, { passive: true });
+        bookmapCanvas.addEventListener('touchend', () => { isDragging = false; });
 
-        // Toggle EMA ON/OFF
-        function toggleEma() {
-            showEma = !showEma;
-            localStorage.setItem('btc_show_ema', showEma ? 'true' : 'false');
-            applyEmaSetting();
-        }
-
-        function applyEmaSetting() {
-            const btn = document.getElementById('btn-toggle-ema');
-            if (showEma) {
-                btn.className = 'tool-btn active';
-                btn.innerHTML = '📈 EMA 9/21: ON';
-                if (ema9Series) ema9Series.applyOptions({ visible: true });
-                if (ema21Series) ema21Series.applyOptions({ visible: true });
+        // Bookmap Palette Color Interpolator
+        function getBookmapColor(intensity) {
+            // intensity: 0.0 to 1.0 (adjusted with contrastLevel)
+            const scaled = Math.min(1.0, Math.max(0.0, intensity * (contrastLevel / 4.0)));
+            if (scaled <= 0.02) {
+                return null; // transparent/background
+            }
+            if (scaled < 0.18) {
+                // Deep Navy -> Slate Blue
+                const t = scaled / 0.18;
+                return `rgba(15, 52, 96, ${0.35 + t * 0.4})`;
+            } else if (scaled < 0.38) {
+                // Slate Blue -> Vibrant Royal/Electric Blue
+                const t = (scaled - 0.18) / 0.20;
+                return `rgba(26, 80, 139, ${0.75 + t * 0.2})`;
+            } else if (scaled < 0.60) {
+                // Electric Blue -> Light Sky Cyan
+                const t = (scaled - 0.38) / 0.22;
+                return `rgba(0, 180, 216, ${0.85 + t * 0.15})`;
+            } else if (scaled < 0.85) {
+                // Cyan -> Glowing Golden Yellow (Liquidity Wall)
+                const t = (scaled - 0.60) / 0.25;
+                const r = Math.round(255);
+                const g = Math.round(211 + t * 40);
+                const b = Math.round(42 - t * 20);
+                return `rgb(${r}, ${g}, ${b})`;
             } else {
-                btn.className = 'tool-btn';
-                btn.innerHTML = '📈 EMA 9/21: OFF';
-                if (ema9Series) ema9Series.applyOptions({ visible: false });
-                if (ema21Series) ema21Series.applyOptions({ visible: false });
-            }
-            if (isUsingFallbackCanvas) {
-                drawCanvasChart();
+                // Brilliant Incandescent White-Yellow (Huge Liquidity Wall)
+                const t = (scaled - 0.85) / 0.15;
+                const b = Math.round(100 + t * 155);
+                return `rgb(255, 255, ${b})`;
             }
         }
 
-        // Initialize TradingView Lightweight Charts
-        function initChart() {
-            const container = document.getElementById('chart-container');
-            const heatCanvas = document.getElementById('heatmap-canvas');
+        // Draw Complete Bookmap
+        function drawBookmap() {
+            if (currentMode !== 'bookmap') return;
+            const dpr = window.devicePixelRatio || 1;
+            const w = bookmapCanvas.width / dpr;
+            const h = bookmapCanvas.height / dpr;
+            if (w <= 0 || h <= 0) return;
 
-            function syncHeatmapCanvasSize() {
-                heatCanvas.width = container.clientWidth;
-                heatCanvas.height = container.clientHeight;
-                renderHeatmapOverlay();
+            bmCtx.save();
+            bmCtx.scale(dpr, dpr);
+
+            // 1. Clear & Background
+            bmCtx.fillStyle = '#0c1017';
+            bmCtx.fillRect(0, 0, w, h);
+
+            if (autoFollowPrice && lastPrice > 0) {
+                priceCenter = lastPrice;
+            } else if (priceCenter === 0 && lastPrice > 0) {
+                priceCenter = lastPrice;
             }
 
-            if (typeof LightweightCharts !== 'undefined') {
-                try {
-                    chart = LightweightCharts.createChart(container, {
-                        width: container.clientWidth,
-                        height: container.clientHeight,
-                        layout: {
-                            background: { color: '#151922' },
-                            textColor: '#8c9ba5',
-                        },
-                        grid: {
-                            vertLines: { color: 'rgba(38, 47, 61, 0.4)' },
-                            horzLines: { color: 'rgba(38, 47, 61, 0.4)' },
-                        },
-                        crosshair: {
-                            mode: LightweightCharts.CrosshairMode.Normal,
-                        },
-                        rightPriceScale: {
-                            borderColor: '#262f3d',
-                            scaleMargins: {
-                                top: showVolume ? 0.08 : 0.04,
-                                bottom: showVolume ? 0.22 : 0.04,
-                            },
-                        },
-                        timeScale: {
-                            borderColor: '#262f3d',
-                            timeVisible: true,
-                            secondsVisible: false,
-                        },
-                    });
+            const minPrice = priceCenter - (priceSpan / 2);
+            const maxPrice = priceCenter + (priceSpan / 2);
+            const domWidth = 90; // right-hand price axis & DOM width
+            const plotWidth = w - domWidth;
+            const bottomTimeHeight = 24;
+            const plotHeight = h - bottomTimeHeight;
 
-                    // Candlestick Series
-                    candleSeries = chart.addCandlestickSeries({
-                        upColor: '#26a69a',
-                        downColor: '#ef5350',
-                        borderVisible: false,
-                        wickUpColor: '#26a69a',
-                        wickDownColor: '#ef5350',
-                    });
+            function priceToY(p) {
+                return plotHeight - ((p - minPrice) / (maxPrice - minPrice)) * plotHeight;
+            }
+            function yToPrice(y) {
+                return minPrice + ((plotHeight - y) / plotHeight) * (maxPrice - minPrice);
+            }
 
-                    // Volume Series
-                    volumeSeries = chart.addHistogramSeries({
-                        color: '#26a69a',
-                        priceFormat: {
-                            type: 'volume',
-                        },
-                        priceScaleId: '',
-                        scaleMargins: {
-                            top: 0.8,
-                            bottom: 0,
-                        },
-                        visible: showVolume,
-                    });
+            // 2. Grid Lines & Time Axis (Dotted Lines)
+            bmCtx.lineWidth = 1;
 
-                    // EMA 9 Series (Cyan)
-                    ema9Series = chart.addLineSeries({
-                        color: '#00f2fe',
-                        lineWidth: 2,
-                        title: 'EMA 9',
-                        visible: showEma,
-                    });
+            // Dotted Price Lines
+            const stepPrice = priceSpan < 30 ? 5.0 : (priceSpan < 80 ? 10.0 : 25.0);
+            const firstGridP = Math.floor(minPrice / stepPrice) * stepPrice;
+            for (let p = firstGridP; p <= maxPrice; p += stepPrice) {
+                const y = priceToY(p);
+                if (y >= 0 && y <= plotHeight) {
+                    bmCtx.setLineDash([2, 4]);
+                    bmCtx.strokeStyle = 'rgba(40, 52, 72, 0.6)';
+                    bmCtx.beginPath();
+                    bmCtx.moveTo(0, y);
+                    bmCtx.lineTo(plotWidth, y);
+                    bmCtx.stroke();
+                    bmCtx.setLineDash([]);
+                }
+            }
 
-                    // EMA 21 Series (Gold)
-                    ema21Series = chart.addLineSeries({
-                        color: '#fbbf24',
-                        lineWidth: 2,
-                        title: 'EMA 21',
-                        visible: showEma,
-                    });
+            // 3. Render 2D Liquidity Heatmap Slices
+            const visibleSliceCount = Math.max(60, Math.min(180, rawSlices.length));
+            const slices = rawSlices.slice(-visibleSliceCount);
+            const sliceW = plotWidth / Math.max(1, visibleSliceCount);
 
-                    // Sync heatmap on chart pan/zoom or crosshair move
-                    chart.timeScale().subscribeVisibleTimeRangeChange(() => {
-                        requestAnimationFrame(renderHeatmapOverlay);
-                    });
-                    chart.subscribeCrosshairMove(param => {
-                        if (param.time) {
-                            const price = param.seriesPrices.get(candleSeries);
-                            if (price) {
-                                document.getElementById('ohlc-info').innerText =
-                                    "O: " + formatComma(price.open) + "  H: " + formatComma(price.high) + "  L: " + formatComma(price.low) + "  C: " + formatComma(price.close);
+            // Find max depth size for dynamic normalization
+            let maxVolInBook = 6.0;
+            slices.forEach(s => {
+                if (s.bids) s.bids.forEach(b => { if (b[1] > maxVolInBook) maxVolInBook = b[1]; });
+                if (s.asks) s.asks.forEach(a => { if (a[1] > maxVolInBook) maxVolInBook = a[1]; });
+            });
+
+            // Draw Heatmap Pixels / Blocks
+            const cellHeight = Math.max(3, (1.0 / (maxPrice - minPrice)) * plotHeight);
+            for (let i = 0; i < slices.length; i++) {
+                const s = slices[i];
+                const x = i * sliceW;
+
+                // Render Bids
+                if (s.bids) {
+                    for (let j = 0; j < s.bids.length; j++) {
+                        const p = s.bids[j][0];
+                        const sz = s.bids[j][1];
+                        if (p >= minPrice - 5 && p <= maxPrice + 5) {
+                            const y = priceToY(p);
+                            const col = getBookmapColor(sz / maxVolInBook);
+                            if (col) {
+                                bmCtx.fillStyle = col;
+                                bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
                             }
                         }
-                    });
+                    }
+                }
 
-                    window.addEventListener('resize', () => {
-                        if (chart) {
-                            chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-                            syncHeatmapCanvasSize();
+                // Render Asks
+                if (s.asks) {
+                    for (let j = 0; j < s.asks.length; j++) {
+                        const p = s.asks[j][0];
+                        const sz = s.asks[j][1];
+                        if (p >= minPrice - 5 && p <= maxPrice + 5) {
+                            const y = priceToY(p);
+                            const col = getBookmapColor(sz / maxVolInBook);
+                            if (col) {
+                                bmCtx.fillStyle = col;
+                                bmCtx.fillRect(x, y - (cellHeight / 2), sliceW + 0.6, cellHeight);
+                            }
                         }
+                    }
+                }
+            }
+
+            // Dotted Time Grid Lines
+            for (let i = 0; i < slices.length; i += 15) {
+                const s = slices[i];
+                const x = i * sliceW;
+                bmCtx.setLineDash([2, 5]);
+                bmCtx.strokeStyle = 'rgba(50, 65, 88, 0.7)';
+                bmCtx.beginPath();
+                bmCtx.moveTo(x, 0);
+                bmCtx.lineTo(x, plotHeight);
+                bmCtx.stroke();
+                bmCtx.setLineDash([]);
+
+                // Time label at bottom
+                const dt = new Date(s.ts * 1000);
+                const timeStr = dt.toTimeString().split(' ')[0].substring(0, 5); // "14:25"
+                bmCtx.fillStyle = '#6b7d90';
+                bmCtx.font = '10px monospace';
+                bmCtx.textAlign = 'center';
+                bmCtx.fillText(timeStr, x, h - 8);
+            }
+
+            // 4. Price Trajectory Path (Step Polyline like Bookmap)
+            if (slices.length > 1) {
+                bmCtx.lineWidth = 1.8;
+                for (let i = 1; i < slices.length; i++) {
+                    const prevS = slices[i - 1];
+                    const currS = slices[i];
+                    const prevX = (i - 1) * sliceW;
+                    const currX = i * sliceW;
+                    const prevY = priceToY(prevS.price);
+                    const currY = priceToY(currS.price);
+
+                    const isUp = currS.price >= prevS.price;
+                    bmCtx.strokeStyle = isUp ? '#26a69a' : '#ef5350';
+
+                    // Step line: horizontal to currX, then vertical to currY
+                    bmCtx.beginPath();
+                    bmCtx.moveTo(prevX, prevY);
+                    bmCtx.lineTo(currX, prevY);
+                    bmCtx.lineTo(currX, currY);
+                    bmCtx.stroke();
+                }
+            }
+
+            // 5. Volume Trade Bubbles (The signature Bookmap feature!)
+            if (showBubbles) {
+                for (let i = 0; i < slices.length; i++) {
+                    const s = slices[i];
+                    if (!s.trades || s.trades.length === 0) continue;
+
+                    let buyVol = 0;
+                    let sellVol = 0;
+                    s.trades.forEach(tr => {
+                        if (tr[2] === 'Buy') buyVol += tr[1];
+                        else sellVol += tr[1];
                     });
 
-                    syncHeatmapCanvasSize();
-                    applyVolumeSetting();
-                    applyHeatmapSetting();
-                    applyEmaSetting();
-                    return;
-                } catch (e) {
-                    console.warn("Lightweight charts initialization failed, falling back to canvas:", e);
-                }
-            }
-            // Fallback to Canvas
-            initCanvasFallback();
-        }
+                    const totVol = buyVol + sellVol;
+                    if (totVol <= 0.02) continue;
 
-        // Render Liquidity Depth Heatmap on Canvas Overlay
-        function renderHeatmapOverlay() {
-            if (!showHeatmap || !latestOrderbook) return;
-            const canvas = document.getElementById('heatmap-canvas');
-            if (!canvas || canvas.width === 0 || canvas.height === 0) return;
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            ctx.clearRect(0, 0, w, h);
+                    const x = i * sliceW;
+                    const y = priceToY(s.price);
+                    // Radius log scaled
+                    const r = Math.max(3.5, Math.min(28, Math.pow(totVol, 0.45) * 8.0));
 
-            if (!candleSeries || typeof candleSeries.priceToCoordinate !== 'function') return;
+                    bmCtx.save();
+                    bmCtx.translate(x, y);
 
-            const bids = latestOrderbook.bids_depth || [];
-            const asks = latestOrderbook.asks_depth || [];
-            if (!bids.length && !asks.length) return;
+                    // Bubble split: Buy (green) on top, Sell (red) on bottom
+                    const buyFraction = buyVol / totVol;
+                    const splitAngle = -Math.PI + (buyFraction * 2 * Math.PI);
 
-            const allSizes = bids.map(b => b[1]).concat(asks.map(a => a[1]));
-            const maxSz = Math.max(8.0, ...allSizes);
+                    // Green Sector (Aggressive Buys)
+                    bmCtx.beginPath();
+                    bmCtx.arc(0, 0, r, -Math.PI, splitAngle, false);
+                    bmCtx.lineTo(0, 0);
+                    bmCtx.closePath();
+                    const gradBuy = bmCtx.createRadialGradient(0, -r/3, 1, 0, 0, r);
+                    gradBuy.addColorStop(0, '#4db6ac');
+                    gradBuy.addColorStop(1, '#26a69a');
+                    bmCtx.fillStyle = gradBuy;
+                    bmCtx.fill();
 
-            // 1. Draw Bids Heatmap Bands (Cyan/Aqua Gradient)
-            for (let i = 0; i < bids.length; i++) {
-                const price = bids[i][0];
-                const size = bids[i][1];
-                const y = candleSeries.priceToCoordinate(price);
-                if (y === null || y < -10 || y > h + 10) continue;
+                    // Red Sector (Aggressive Sells)
+                    bmCtx.beginPath();
+                    bmCtx.arc(0, 0, r, splitAngle, Math.PI, false);
+                    bmCtx.lineTo(0, 0);
+                    bmCtx.closePath();
+                    const gradSell = bmCtx.createRadialGradient(0, r/3, 1, 0, 0, r);
+                    gradSell.addColorStop(0, '#e57373');
+                    gradSell.addColorStop(1, '#ef5350');
+                    bmCtx.fillStyle = gradSell;
+                    bmCtx.fill();
 
-                const intensity = Math.min(1.0, Math.max(0.1, size / maxSz));
-                const barWidth = Math.min(w * 0.7, (w * 0.15) + (size / maxSz) * (w * 0.55));
-                const isWall = size >= 6.0;
+                    // Circle Border Outline
+                    bmCtx.beginPath();
+                    bmCtx.arc(0, 0, r, 0, 2 * Math.PI);
+                    bmCtx.strokeStyle = 'rgba(10, 13, 20, 0.8)';
+                    bmCtx.lineWidth = 1.2;
+                    bmCtx.stroke();
 
-                // Horizontal glowing gradient ribbon
-                const grad = ctx.createLinearGradient(w - 70, y, w - 70 - barWidth, y);
-                if (isWall) {
-                    grad.addColorStop(0, 'rgba(0, 242, 254, 0.45)');
-                    grad.addColorStop(0.5, 'rgba(0, 242, 254, 0.18)');
-                    grad.addColorStop(1, 'rgba(0, 242, 254, 0.0)');
-                } else {
-                    grad.addColorStop(0, `rgba(38, 166, 154, ${intensity * 0.35})`);
-                    grad.addColorStop(0.6, `rgba(38, 166, 154, ${intensity * 0.1})`);
-                    grad.addColorStop(1, 'rgba(38, 166, 154, 0)');
-                }
+                    // Whale Golden Ring for massive trades
+                    if (totVol >= 2.0) {
+                        bmCtx.beginPath();
+                        bmCtx.arc(0, 0, r + 2.5, 0, 2 * Math.PI);
+                        bmCtx.strokeStyle = '#fbbf24';
+                        bmCtx.lineWidth = 1.8;
+                        bmCtx.stroke();
+                    }
 
-                ctx.fillStyle = grad;
-                ctx.fillRect(w - 70 - barWidth, y - 2, barWidth, 4);
-
-                // Highlight prominent liquidity walls
-                if (isWall) {
-                    ctx.setLineDash([4, 4]);
-                    ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(w - 70 - barWidth, y);
-                    ctx.lineTo(w - 70, y);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-
-                    // Wall size tag pill on right edge
-                    ctx.fillStyle = 'rgba(0, 242, 254, 0.85)';
-                    ctx.font = 'bold 10px monospace';
-                    ctx.fillText(`▲ ${size.toFixed(1)}B`, w - 65, y + 3);
+                    bmCtx.restore();
                 }
             }
 
-            // 2. Draw Asks Heatmap Bands (Gold/Orange Gradient)
-            for (let i = 0; i < asks.length; i++) {
-                const price = asks[i][0];
-                const size = asks[i][1];
-                const y = candleSeries.priceToCoordinate(price);
-                if (y === null || y < -10 || y > h + 10) continue;
+            // 6. Right-Hand DOM Column & Price Scale (Bookmap Right Axis)
+            bmCtx.fillStyle = '#0f141f';
+            bmCtx.fillRect(plotWidth, 0, domWidth, plotHeight);
+            bmCtx.strokeStyle = '#222c3d';
+            bmCtx.lineWidth = 1;
+            bmCtx.beginPath();
+            bmCtx.moveTo(plotWidth, 0);
+            bmCtx.lineTo(plotWidth, plotHeight);
+            bmCtx.stroke();
 
-                const intensity = Math.min(1.0, Math.max(0.1, size / maxSz));
-                const barWidth = Math.min(w * 0.7, (w * 0.15) + (size / maxSz) * (w * 0.55));
-                const isWall = size >= 6.0;
-
-                const grad = ctx.createLinearGradient(w - 70, y, w - 70 - barWidth, y);
-                if (isWall) {
-                    grad.addColorStop(0, 'rgba(251, 191, 36, 0.45)');
-                    grad.addColorStop(0.5, 'rgba(251, 191, 36, 0.18)');
-                    grad.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
-                } else {
-                    grad.addColorStop(0, `rgba(239, 83, 80, ${intensity * 0.35})`);
-                    grad.addColorStop(0.6, `rgba(239, 83, 80, ${intensity * 0.1})`);
-                    grad.addColorStop(1, 'rgba(239, 83, 80, 0)');
-                }
-
-                ctx.fillStyle = grad;
-                ctx.fillRect(w - 70 - barWidth, y - 2, barWidth, 4);
-
-                if (isWall) {
-                    ctx.setLineDash([4, 4]);
-                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(w - 70 - barWidth, y);
-                    ctx.lineTo(w - 70, y);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-
-                    ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
-                    ctx.font = 'bold 10px monospace';
-                    ctx.fillText(`▼ ${size.toFixed(1)}B`, w - 65, y + 3);
-                }
-            }
-        }
-
-        // Canvas fallback candlestick drawer if offline
-        function initCanvasFallback() {
-            isUsingFallbackCanvas = true;
-            const container = document.getElementById('chart-container');
-            const canvas = document.getElementById('fallback-canvas');
-            canvas.style.display = 'block';
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-            drawCanvasChart();
-            window.addEventListener('resize', () => {
-                canvas.width = container.clientWidth;
-                canvas.height = container.clientHeight;
-                drawCanvasChart();
-            });
-            applyVolumeSetting();
-            applyHeatmapSetting();
-            applyEmaSetting();
-        }
-
-        function drawCanvasChart() {
-            if (!isUsingFallbackCanvas || !klinesData.length) return;
-            const canvas = document.getElementById('fallback-canvas');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            ctx.clearRect(0, 0, w, h);
-
-            // Background & Grid
-            ctx.fillStyle = "#151922";
-            ctx.fillRect(0, 0, w, h);
-
-            let minP = Math.min(...klinesData.map(k => k.low));
-            let maxP = Math.max(...klinesData.map(k => k.high));
-            const range = (maxP - minP) || 1;
-            const bottomMargin = showVolume ? 90 : 30;
-            const chartH = h - bottomMargin - 30;
-            const candleW = Math.max(3, (w - 70) / klinesData.length);
-
-            // 1. Heatmap background bands on fallback canvas
-            if (showHeatmap && latestOrderbook) {
+            // Draw Orderbook Depth Bars in DOM
+            if (latestOrderbook) {
                 const bids = latestOrderbook.bids_depth || [];
                 const asks = latestOrderbook.asks_depth || [];
-                const maxSz = Math.max(8.0, ...bids.map(b => b[1]), ...asks.map(a => a[1]));
+                const maxDomSz = Math.max(10.0, ...bids.map(b => b[1]), ...asks.map(a => a[1]));
 
-                bids.concat(asks).forEach(level => {
-                    const price = level[0];
-                    const size = level[1];
-                    if (price >= minP && price <= maxP) {
-                        const y = h - bottomMargin - ((price - minP) / range) * chartH;
-                        const isBid = price < (lastPrice || (minP + maxP) / 2);
-                        const intensity = Math.min(1.0, size / maxSz);
-                        const bWidth = (w * 0.1) + intensity * (w * 0.4);
-                        ctx.fillStyle = isBid ? `rgba(0, 242, 254, ${intensity * 0.25})` : `rgba(251, 191, 36, ${intensity * 0.25})`;
-                        ctx.fillRect(w - 70 - bWidth, y - 2, bWidth, 4);
+                // Bid depth bars (Cyan)
+                bids.forEach(b => {
+                    const p = b[0];
+                    const sz = b[1];
+                    if (p >= minPrice && p <= maxPrice) {
+                        const y = priceToY(p);
+                        const barW = (sz / maxDomSz) * (domWidth - 15);
+                        bmCtx.fillStyle = 'rgba(0, 242, 254, 0.35)';
+                        bmCtx.fillRect(plotWidth, y - (cellHeight / 2), barW, cellHeight);
+                    }
+                });
+
+                // Ask depth bars (Orange/Gold)
+                asks.forEach(a => {
+                    const p = a[0];
+                    const sz = a[1];
+                    if (p >= minPrice && p <= maxPrice) {
+                        const y = priceToY(p);
+                        const barW = (sz / maxDomSz) * (domWidth - 15);
+                        bmCtx.fillStyle = 'rgba(251, 191, 36, 0.35)';
+                        bmCtx.fillRect(plotWidth, y - (cellHeight / 2), barW, cellHeight);
                     }
                 });
             }
 
-            // 2. Draw candles
-            klinesData.forEach((k, i) => {
-                const x = 20 + i * candleW;
-                const yO = h - bottomMargin - ((k.open - minP) / range) * chartH;
-                const yC = h - bottomMargin - ((k.close - minP) / range) * chartH;
-                const yH = h - bottomMargin - ((k.high - minP) / range) * chartH;
-                const yL = h - bottomMargin - ((k.low - minP) / range) * chartH;
-
-                const isUp = k.close >= k.open;
-                const col = isUp ? "#26a69a" : "#ef5350";
-                ctx.strokeStyle = col;
-                ctx.fillStyle = col;
-
-                // Wick
-                ctx.beginPath();
-                ctx.moveTo(x + candleW/2, yH);
-                ctx.lineTo(x + candleW/2, yL);
-                ctx.stroke();
-
-                // Body
-                const bodyY = Math.min(yO, yC);
-                const bodyH = Math.max(2, Math.abs(yO - yC));
-                ctx.fillRect(x + 1, bodyY, Math.max(1, candleW - 2), bodyH);
-
-                // Volume bars if enabled
-                if (showVolume) {
-                    const maxV = Math.max(...klinesData.map(d => d.volume)) || 1;
-                    const vH = (k.volume / maxV) * 55;
-                    ctx.fillStyle = isUp ? "rgba(38, 166, 154, 0.35)" : "rgba(239, 83, 80, 0.35)";
-                    ctx.fillRect(x + 1, h - 15 - vH, Math.max(1, candleW - 2), vH);
+            // Price Labels on Right Axis
+            for (let p = firstGridP; p <= maxPrice; p += stepPrice) {
+                const y = priceToY(p);
+                if (y >= 10 && y <= plotHeight - 5) {
+                    bmCtx.fillStyle = '#7a8b9e';
+                    bmCtx.font = '10px monospace';
+                    bmCtx.textAlign = 'right';
+                    bmCtx.fillText(p.toFixed(2), w - 8, y + 3);
                 }
-            });
+            }
+
+            // 7. Current Price Banner & Horizontal Cursor Line (matching the green '2743.00 5 (5)' in screenshot!)
+            if (lastPrice > 0) {
+                const currY = priceToY(lastPrice);
+
+                // Horizontal dashed cursor across chart
+                bmCtx.setLineDash([3, 3]);
+                bmCtx.strokeStyle = lastPrice >= prevPrice ? '#26a69a' : '#ef5350';
+                bmCtx.lineWidth = 1;
+                bmCtx.beginPath();
+                bmCtx.moveTo(0, currY);
+                bmCtx.lineTo(plotWidth, currY);
+                bmCtx.stroke();
+                bmCtx.setLineDash([]);
+
+                // Current Price Box on Right Edge
+                const isBull = lastPrice >= prevPrice;
+                bmCtx.fillStyle = isBull ? '#26a69a' : '#ef5350';
+                bmCtx.fillRect(plotWidth + 1, currY - 10, domWidth - 2, 20);
+
+                // Text: Current Price and Bid/Ask Sizes
+                bmCtx.fillStyle = '#ffffff';
+                bmCtx.font = 'bold 11px monospace';
+                bmCtx.textAlign = 'left';
+                bmCtx.fillText(lastPrice.toFixed(1), plotWidth + 6, currY + 4);
+
+                if (latestOrderbook) {
+                    const bestBidSz = (latestOrderbook.bids_depth && latestOrderbook.bids_depth[0]) ? latestOrderbook.bids_depth[0][1].toFixed(0) : '0';
+                    const bestAskSz = (latestOrderbook.asks_depth && latestOrderbook.asks_depth[0]) ? latestOrderbook.asks_depth[0][1].toFixed(0) : '0';
+                    bmCtx.font = '9px monospace';
+                    bmCtx.fillStyle = '#e0f2fe';
+                    bmCtx.textAlign = 'right';
+                    bmCtx.fillText(`${bestBidSz}(${bestAskSz})`, w - 4, currY + 4);
+                }
+            }
+
+            bmCtx.restore();
         }
 
-        // Fetch Historical / Seed Klines
+        // Hover Tooltip inspection
+        function handleBookmapHover(e) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = bookmapCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const domWidth = 90;
+            const plotWidth = rect.width - domWidth;
+            const bottomTimeHeight = 24;
+            const plotHeight = rect.height - bottomTimeHeight;
+
+            if (mouseX < 0 || mouseX > plotWidth || mouseY < 0 || mouseY > plotHeight) {
+                document.getElementById('bookmap-tooltip').style.display = 'none';
+                return;
+            }
+
+            const minPrice = priceCenter - (priceSpan / 2);
+            const maxPrice = priceCenter + (priceSpan / 2);
+            const hoverPrice = minPrice + ((plotHeight - mouseY) / plotHeight) * (maxPrice - minPrice);
+
+            const visibleSliceCount = Math.max(60, Math.min(180, rawSlices.length));
+            const slices = rawSlices.slice(-visibleSliceCount);
+            const sliceIndex = Math.floor((mouseX / plotWidth) * slices.length);
+            const slice = slices[sliceIndex];
+
+            const tt = document.getElementById('bookmap-tooltip');
+            if (slice) {
+                const dt = new Date(slice.ts * 1000);
+                const timeStr = dt.toTimeString().split(' ')[0];
+
+                let nearestDepth = 0;
+                let isBid = hoverPrice < slice.price;
+                const pool = isBid ? (slice.bids || []) : (slice.asks || []);
+                for (let k = 0; k < pool.length; k++) {
+                    if (Math.abs(pool[k][0] - hoverPrice) <= 1.0) {
+                        nearestDepth = pool[k][1];
+                        break;
+                    }
+                }
+
+                tt.style.display = 'block';
+                tt.style.left = (mouseX + 16) + 'px';
+                tt.style.top = Math.max(10, mouseY - 40) + 'px';
+                tt.innerHTML = `
+                    <div style="font-weight:bold; color:var(--cyan);">${timeStr}</div>
+                    <div>Price: <strong>$${formatComma(hoverPrice, 2)}</strong></div>
+                    <div>Slice Mid: <strong>$${formatComma(slice.price, 2)}</strong></div>
+                    <div>Liquidity: <strong>${nearestDepth.toFixed(2)} BTC</strong></div>
+                `;
+            }
+        }
+
+        // =====================================================================
+        // TRADINGVIEW CANDLESTICK CHART (Alternative Mode)
+        // =====================================================================
+        function initCandleChart() {
+            const container = document.getElementById('chart-container');
+            if (typeof LightweightCharts === 'undefined' || chart) return;
+            try {
+                chart = LightweightCharts.createChart(container, {
+                    width: container.clientWidth,
+                    height: container.clientHeight,
+                    layout: { background: { color: '#0c1017' }, textColor: '#8c9ba5' },
+                    grid: { vertLines: { color: 'rgba(34, 44, 61, 0.4)' }, horzLines: { color: 'rgba(34, 44, 61, 0.4)' } },
+                    rightPriceScale: { borderColor: '#222c3d', scaleMargins: { top: 0.05, bottom: showVolume ? 0.22 : 0.05 } },
+                    timeScale: { borderColor: '#222c3d', timeVisible: true }
+                });
+
+                candleSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+                    wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+                });
+
+                volumeSeries = chart.addHistogramSeries({
+                    color: '#26a69a', priceFormat: { type: 'volume' },
+                    priceScaleId: '', scaleMargins: { top: 0.8, bottom: 0 },
+                    visible: showVolume
+                });
+
+                window.addEventListener('resize', () => {
+                    if (chart && container) {
+                        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+                    }
+                });
+            } catch (e) {
+                console.warn("Candlestick chart init failed:", e);
+            }
+        }
+
         async function fetchKlines() {
             try {
                 const res = await fetch('/api/klines');
                 if (!res.ok) return;
                 const data = await res.json();
-                if (data && data.length) {
+                if (data && data.length && candleSeries) {
                     klinesData = data;
-                    if (candleSeries) {
-                        const formatted = data.map(k => ({
+                    candleSeries.setData(data.map(k => ({
+                        time: Math.floor(k.start / 1000),
+                        open: k.open, high: k.high, low: k.low, close: k.close
+                    })));
+                    if (volumeSeries) {
+                        volumeSeries.setData(data.map(k => ({
                             time: Math.floor(k.start / 1000),
-                            open: k.open,
-                            high: k.high,
-                            low: k.low,
-                            close: k.close,
-                        }));
-                        candleSeries.setData(formatted);
-
-                        if (volumeSeries) {
-                            const volumes = data.map(k => ({
-                                time: Math.floor(k.start / 1000),
-                                value: k.volume,
-                                color: k.close >= k.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)',
-                            }));
-                            volumeSeries.setData(volumes);
-                        }
-
-                        // Calculate EMA on klines
-                        calculateAndSetEMAs(data);
-                    } else if (isUsingFallbackCanvas) {
-                        drawCanvasChart();
+                            value: k.volume,
+                            color: k.close >= k.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)'
+                        })));
                     }
-                    renderHeatmapOverlay();
+                }
+            } catch (e) {}
+        }
+
+        // =====================================================================
+        // DATA STREAMING: INITIAL SEED + REAL-TIME POLLING
+        // =====================================================================
+        async function fetchHeatmapHistory() {
+            try {
+                const res = await fetch('/api/heatmap');
+                if (res.ok) {
+                    const slices = await res.json();
+                    if (slices && slices.length) {
+                        rawSlices = slices;
+                        if (slices.length > 0 && priceCenter === 0) {
+                            priceCenter = slices[slices.length - 1].price;
+                        }
+                        requestAnimationFrame(drawBookmap);
+                    }
                 }
             } catch (e) {
-                console.error("fetchKlines error", e);
+                console.error("fetchHeatmapHistory error", e);
             }
         }
 
-        function calculateAndSetEMAs(data) {
-            if (!ema9Series || !ema21Series) return;
-            const calcEma = (period) => {
-                const k = 2 / (period + 1);
-                let ema = data[0].close;
-                return data.map(d => {
-                    ema = d.close * k + ema * (1 - k);
-                    return { time: Math.floor(d.start / 1000), value: ema };
-                });
-            };
-            ema9Series.setData(calcEma(9));
-            ema21Series.setData(calcEma(21));
-        }
-
-        // Poll Live State every 600ms
         async function fetchState() {
             try {
                 const res = await fetch('/api/state');
@@ -1116,15 +1403,31 @@
                 }
                 if (!res.ok) return;
                 const st = await res.json();
-                latestOrderbook = st.orderbook;
 
-                // 1. Hero Header
-                const pEl = document.getElementById('hero-price');
-                if (lastPrice > 0 && st.last_price !== lastPrice) {
-                    pEl.style.color = st.last_price > lastPrice ? '#26a69a' : '#ef5350';
-                    setTimeout(() => { pEl.style.color = 'var(--text-main)'; }, 400);
-                }
+                latestOrderbook = st.orderbook;
+                prevPrice = lastPrice > 0 ? lastPrice : st.last_price;
                 lastPrice = st.last_price;
+
+                // Push new history slice into rolling buffer
+                if (st.latest_slice) {
+                    const lastTs = rawSlices.length ? rawSlices[rawSlices.length - 1].ts : 0;
+                    if (st.latest_slice.ts > lastTs) {
+                        rawSlices.push(st.latest_slice);
+                        if (rawSlices.length > 240) rawSlices.shift();
+                    } else if (rawSlices.length) {
+                        rawSlices[rawSlices.length - 1] = st.latest_slice;
+                    }
+                }
+
+                // Trigger smooth Bookmap redraw
+                requestAnimationFrame(drawBookmap);
+
+                // Update Hero Bar
+                const pEl = document.getElementById('hero-price');
+                if (st.last_price !== prevPrice && prevPrice > 0) {
+                    pEl.style.color = st.last_price >= prevPrice ? '#26a69a' : '#ef5350';
+                    setTimeout(() => { pEl.style.color = 'var(--text-main)'; }, 350);
+                }
                 pEl.innerText = "$" + formatComma(st.last_price, 2);
 
                 const chgEl = document.getElementById('hero-chg');
@@ -1140,7 +1443,7 @@
                 document.getElementById('hero-arb').innerText = "Bin: $" + formatComma(st.binance_price, 0) + " (" + arbSign + st.arb_diff.toFixed(1) + ")";
                 document.getElementById('hero-funding').innerText = (st.funding_rate >= 0 ? '+' : '') + st.funding_rate.toFixed(4) + "%";
 
-                // 2. Confluence Signal
+                // Confluence Signal
                 const score = st.confluence.score;
                 const scEl = document.getElementById('conf-score');
                 scEl.innerText = (score >= 0 ? '+' : '') + score;
@@ -1152,7 +1455,7 @@
                 document.getElementById('ema-trend').innerText = st.ema9 >= st.ema21 ? 'BULLISH ▲' : 'BEARISH ▼';
                 document.getElementById('ema-trend').className = "info-val " + (st.ema9 >= st.ema21 ? 'text-green' : 'text-red');
 
-                // 3. Orderbook Pressure
+                // Orderbook Microstructure
                 const bRatio = st.orderbook.pressure_bid_ratio;
                 document.getElementById('pressure-fill').style.width = bRatio + "%";
                 document.getElementById('bid-press-lbl').innerText = bRatio.toFixed(0) + "% Bid";
@@ -1163,7 +1466,7 @@
                 document.getElementById('bid-wall-val').innerText = "$" + formatComma(st.orderbook.bid_wall_price, 0) + " (" + st.orderbook.bid_wall_size.toFixed(1) + " BTC)";
                 document.getElementById('ask-wall-val').innerText = "$" + formatComma(st.orderbook.ask_wall_price, 0) + " (" + st.orderbook.ask_wall_size.toFixed(1) + " BTC)";
 
-                // 4. CVD & Vacuum
+                // CVD & Vacuum
                 const cvdDelta = st.session_cvd.delta;
                 const deltaEl = document.getElementById('cvd-delta');
                 deltaEl.innerText = (cvdDelta >= 0 ? '+' : '') + cvdDelta.toFixed(1) + " BTC";
@@ -1171,26 +1474,7 @@
                 document.getElementById('vac-status').innerText = st.vacuum_status;
                 document.getElementById('anom-status').innerText = st.latest_anomaly || "Normal Flow";
 
-                // 5. Update latest candlestick in chart
-                if (candleSeries && klinesData.length) {
-                    const lastK = klinesData[klinesData.length - 1];
-                    if (st.last_price > 0) {
-                        const updatedHigh = Math.max(lastK.high, st.last_price);
-                        const updatedLow = Math.min(lastK.low, st.last_price);
-                        candleSeries.update({
-                            time: Math.floor(lastK.start / 1000),
-                            open: lastK.open,
-                            high: updatedHigh,
-                            low: updatedLow,
-                            close: st.last_price,
-                        });
-                    }
-                }
-
-                // 6. Update Heatmap Overlay
-                renderHeatmapOverlay();
-
-                // 7. Recent Trades
+                // Trades
                 if (st.recent_trades && st.recent_trades.length) {
                     const tape = document.getElementById('trade-tape');
                     tape.innerHTML = st.recent_trades.slice(0, 15).map(tr => {
@@ -1206,7 +1490,7 @@
                     }).join('');
                 }
 
-                // 8. Whales
+                // Whales
                 if (st.recent_whales && st.recent_whales.length) {
                     const wTape = document.getElementById('whale-tape');
                     wTape.innerHTML = st.recent_whales.slice(0, 8).map(w => {
@@ -1226,13 +1510,18 @@
             }
         }
 
-        // Lifecycle
+        // Initialization
         window.addEventListener('DOMContentLoaded', () => {
-            initChart();
-            fetchKlines();
+            const contrastInput = document.getElementById('contrast-slider');
+            contrastInput.value = contrastLevel;
+
+            applyVolumeSetting();
+            resizeBookmapCanvas();
+
+            fetchHeatmapHistory();
             fetchState();
-            setInterval(fetchState, 600);
-            setInterval(fetchKlines, 10000);
+            setInterval(fetchState, 500);
+            setInterval(fetchHeatmapHistory, 15000);
         });
     </script>
 </body>

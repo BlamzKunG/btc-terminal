@@ -115,7 +115,7 @@ pub struct Kline {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistorySlice {
     pub ts: f64,
     pub price: f64,

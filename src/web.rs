@@ -111,6 +111,19 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                             );
                             let _ = socket.write_all(resp.as_bytes()).await;
                         }
+                        ("GET", "/api/heatmap") => {
+                            let slices_json = {
+                                let st = state_clone.read().await;
+                                let list: Vec<_> = st.history_slices.iter().collect();
+                                serde_json::to_string(&list).unwrap_or_else(|_| "[]".to_string())
+                            };
+                            let resp = format!(
+                                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                slices_json.len(),
+                                slices_json
+                            );
+                            let _ = socket.write_all(resp.as_bytes()).await;
+                        }
                         ("GET", "/api/state") => {
                             let json_state = {
                                 let st = state_clone.read().await;
@@ -195,6 +208,7 @@ pub async fn run_web_server(state: Arc<RwLock<MarketState>>) {
                                     "latest_anomaly": st.latest_anomaly,
                                     "recent_trades": recent_trades,
                                     "recent_whales": recent_whales,
+                                    "latest_slice": st.history_slices.back(),
                                     "enable_web_ui": st.settings.enable_web_ui,
                                     "web_port": st.settings.web_port
                                 }).to_string()
