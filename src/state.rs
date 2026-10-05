@@ -197,6 +197,9 @@ impl MarketState {
     }
 
     pub fn update_macro_depth(&mut self, data: &serde_json::Value) {
+        if self.symbol == "XAUUSDT" || self.symbol == "XAUTUSDT" {
+            return;
+        }
         if let Some(bids) = data.get("bids").and_then(|v| v.as_array()) {
             for item in bids {
                 if let (Some(p), Some(s)) = (
@@ -227,10 +230,8 @@ impl MarketState {
     pub fn update_orderbook(&mut self, msg_type: &str, data: &serde_json::Value) {
         let now = now_secs();
         if msg_type == "snapshot" {
-            if self.bids.len() < 500 {
-                self.bids.clear();
-                self.asks.clear();
-            }
+            self.bids.clear();
+            self.asks.clear();
             if let Some(bids) = data.get("b").and_then(|v| v.as_array()) {
                 for item in bids {
                     if let (Some(p), Some(s)) = (
@@ -789,21 +790,27 @@ impl MarketState {
             return (Vec::new(), Vec::new(), (0.0, 0.0), (0.0, 0.0));
         }
 
+        let step = step.max(0.1);
         let best_bid = from_key(*self.bids.keys().next_back().unwrap());
         let best_ask = from_key(*self.asks.keys().next().unwrap());
+        let mid = if self.last_price > 0.0 { self.last_price } else { (best_bid + best_ask) / 2.0 };
 
         let mut ask_buckets: BTreeMap<i64, f64> = BTreeMap::new();
         for (k, s) in &self.asks {
             let p = from_key(*k);
-            let bucket = ((p / step).ceil() * step * 100.0).round() as i64;
-            *ask_buckets.entry(bucket).or_insert(0.0) += s;
+            if p >= best_bid && (p >= mid || p >= best_ask) {
+                let bucket = ((p / step).ceil() * step * 100.0).round() as i64;
+                *ask_buckets.entry(bucket).or_insert(0.0) += s;
+            }
         }
 
         let mut bid_buckets: BTreeMap<i64, f64> = BTreeMap::new();
         for (k, s) in &self.bids {
             let p = from_key(*k);
-            let bucket = ((p / step).floor() * step * 100.0).round() as i64;
-            *bid_buckets.entry(bucket).or_insert(0.0) += s;
+            if p <= best_ask && (p <= mid || p <= best_bid) {
+                let bucket = ((p / step).floor() * step * 100.0).round() as i64;
+                *bid_buckets.entry(bucket).or_insert(0.0) += s;
+            }
         }
 
         // Asks descending down to mid price

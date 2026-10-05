@@ -92,25 +92,31 @@ pub async fn seed_from_rest(state: Arc<RwLock<MarketState>>) {
     }
 
     // 5. Binance Macro Depth
-    let bin_limit = if bin_symbol == "BTCUSDT" || bin_symbol == "ETHUSDT" || bin_symbol == "SOLUSDT" { 5000 } else { 1000 };
-    let binance_depth_urls = [
-        format!("https://data-api.binance.vision/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
-        format!("https://api.binance.com/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
-    ];
-    for url in &binance_depth_urls {
-        if let Ok(output) = std::process::Command::new("curl")
-            .args(["-4", "-s", "--max-time", "6", url])
-            .output()
-        {
-            if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
-                if val.get("bids").is_some() {
-                    let mut st = state.write().await;
-                    st.update_macro_depth(&val);
-                    st.seed_initial_slices(60);
-                    break;
+    let is_xau = symbol == "XAUUSDT" || symbol == "XAUTUSDT" || bin_symbol == "PAXGUSDT";
+    if !is_xau {
+        let bin_limit = if bin_symbol == "BTCUSDT" || bin_symbol == "ETHUSDT" || bin_symbol == "SOLUSDT" { 5000 } else { 1000 };
+        let binance_depth_urls = [
+            format!("https://data-api.binance.vision/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
+            format!("https://api.binance.com/api/v3/depth?symbol={}&limit={}", bin_symbol, bin_limit),
+        ];
+        for url in &binance_depth_urls {
+            if let Ok(output) = std::process::Command::new("curl")
+                .args(["-4", "-s", "--max-time", "6", url])
+                .output()
+            {
+                if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                    if val.get("bids").is_some() {
+                        let mut st = state.write().await;
+                        st.update_macro_depth(&val);
+                        st.seed_initial_slices(60);
+                        break;
+                    }
                 }
             }
         }
+    } else {
+        let mut st = state.write().await;
+        st.seed_initial_slices(60);
     }
 }
 
@@ -238,7 +244,13 @@ pub async fn run_binance_ws(state: Arc<RwLock<MarketState>>) {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15));
         loop {
             interval.tick().await;
-            let bin_sym = { macro_state.read().await.binance_symbol().to_string() };
+            let (bin_sym, sym) = {
+                let st = macro_state.read().await;
+                (st.binance_symbol().to_string(), st.symbol.clone())
+            };
+            if sym == "XAUUSDT" || sym == "XAUTUSDT" || bin_sym == "PAXGUSDT" {
+                continue;
+            }
             let bin_limit = if bin_sym == "BTCUSDT" || bin_sym == "ETHUSDT" || bin_sym == "SOLUSDT" { 5000 } else { 1000 };
             let res = tokio::task::spawn_blocking(move || {
                 let urls = [

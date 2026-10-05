@@ -32,6 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut web_only = false;
     let mut interval_ms = 100u64;
     let mut custom_symbol: Option<String> = None;
+    let mut custom_step: Option<f64> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -43,6 +44,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "-s" | "--symbol" => {
                 if i + 1 < args.len() {
                     custom_symbol = Some(args[i + 1].to_uppercase());
+                    i += 1;
+                }
+            }
+            "--step" | "-t" => {
+                if i + 1 < args.len() {
+                    if let Ok(st_val) = args[i + 1].parse::<f64>() {
+                        custom_step = Some(st_val.max(0.1));
+                    }
                     i += 1;
                 }
             }
@@ -76,6 +85,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         st.is_menu_open = open_menu;
         if let Some(ref sym) = custom_symbol {
             st.reset_for_symbol(sym);
+        }
+        if let Some(step) = custom_step {
+            st.settings.ladder_step = step.max(0.1);
         }
     }
 
@@ -237,11 +249,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     });
                                 }
                                 KeyCode::Char('+') | KeyCode::Char('=') => {
-                                    st.settings.ladder_step = (st.settings.ladder_step + 1.0).min(50.0);
+                                    let next = if st.settings.ladder_step < 0.95 {
+                                        ((st.settings.ladder_step + 0.1) * 10.0).round() / 10.0
+                                    } else {
+                                        st.settings.ladder_step + 1.0
+                                    };
+                                    st.settings.ladder_step = next.min(50.0);
                                     st.settings.save();
                                 }
                                 KeyCode::Char('-') | KeyCode::Char('_') => {
-                                    st.settings.ladder_step = (st.settings.ladder_step - 1.0).max(1.0);
+                                    let next = if st.settings.ladder_step <= 1.05 {
+                                        ((st.settings.ladder_step - 0.1) * 10.0).round() / 10.0
+                                    } else {
+                                        st.settings.ladder_step - 1.0
+                                    };
+                                    st.settings.ladder_step = next.max(0.1);
                                     st.settings.save();
                                 }
                                 KeyCode::Char('w') | KeyCode::Char('W') => {

@@ -1243,7 +1243,11 @@ fn render_ladder_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, m
     let px_s = format!("${} ", format_comma(st.last_price, 2));
     let spr_s = format!("${:.2} ", spread);
     let basis_s = format!("{:+.2} ", basis);
-    let step_s = format!("${:.0} ", st.settings.ladder_step);
+    let step_s = if st.settings.ladder_step < 1.0 || st.settings.ladder_step.fract() != 0.0 {
+        format!("${:.1} ", st.settings.ladder_step)
+    } else {
+        format!("${:.0} ", st.settings.ladder_step)
+    };
     let depth_s = format!("{} ", st.settings.ladder_rows);
 
     let sym_s = format!("  {} ", st.symbol);
@@ -1479,7 +1483,11 @@ fn render_heatmap_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, 
     let px_s = format!("${} ", format_comma(st.last_price, 2));
     let spr_s = format!("${:.2} ", spread);
     let delta_s = format!("{:+.1} {} ", delta, st.asset_unit());
-    let step_s = format!("${:.0} ", st.settings.ladder_step);
+    let step_s = if st.settings.ladder_step < 1.0 || st.settings.ladder_step.fract() != 0.0 {
+        format!("${:.1} ", st.settings.ladder_step)
+    } else {
+        format!("${:.0} ", st.settings.ladder_step)
+    };
     let depth_s = format!("{} ", st.settings.ladder_rows);
     let sym_s = format!("  {} ", st.symbol);
 
@@ -1514,8 +1522,8 @@ fn render_heatmap_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, 
     draw_horizontal_divider(x, *row, inner_w, border_col, buf);
     *row += 1;
 
-    let step = st.settings.ladder_step.max(1.0);
-    let center_p = (st.last_price / step).round() * step;
+    let step = st.settings.ladder_step.max(0.1);
+    let center_p = ((st.last_price / step).round() * step * 100.0).round() / 100.0;
 
     let available_heatmap_space = max_y.saturating_sub(*row + 6) as usize;
     let requested_tiers = st.settings.ladder_rows * 2;
@@ -1608,7 +1616,8 @@ fn render_heatmap_page(st: &MarketState, inner_w: usize, x: u16, row: &mut u16, 
             row_chars.push((if has_price { '─' } else { ' ' }, style));
         }
 
-        let p_label = format!(" {} ${:<7} │", p_tag, format_comma(p, 0));
+        let p_dec = if step < 1.0 || step.fract() != 0.0 { 1 } else { 0 };
+        let p_label = format!(" {} ${:<7} │", p_tag, format_comma(p, p_dec));
         buf.set_string(x + 2, *row, &p_label, Style::default().fg(p_col).add_modifier(if is_curr { Modifier::BOLD } else { Modifier::empty() }));
 
         let mut start_col = x + 15;
